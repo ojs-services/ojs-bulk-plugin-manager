@@ -1,207 +1,164 @@
 # Bulk Plugin Manager for OJS
 
-**Version:** 1.6.0  
+![Version](https://img.shields.io/badge/version-1.6.2-blue)
+![OJS](https://img.shields.io/badge/OJS-3.3.x-green)
+![License](https://img.shields.io/badge/license-GPL--3.0-orange)
+
+**Version:** 1.6.2  
 **Compatibility:** OJS 3.3.x only (3.3.0.0 - 3.3.0.21)  
 **Author:** OJS Services  
 **License:** GPL v3
 
 ---
 
-## 📋 Açıklama
+## 📋 Description
 
-Bulk Plugin Manager, Open Journal Systems (OJS) için geliştirilmiş kapsamlı bir eklenti yönetim aracıdır. OJS'nin standart eklenti galerisi arayüzünün aksine, tüm eklentileri tek bir sayfada görüntüler, toplu işlemler yapmanıza olanak tanır ve veritabanı-dosya senkronizasyon sorunlarını tespit edip düzeltir.
-
----
-
-## 🎯 Ne Zaman Kullanılmalı?
-
-### 1. OJS Eklenti Sayfası Kilitlendiğinde
-OJS'nin `/management/settings/website` > `Plugins` sayfası bazen yüklenmiyor veya çok yavaş açılıyorsa, bu genellikle veritabanı-dosya versiyon uyumsuzluğundan kaynaklanır. Bulk Plugin Manager bu sorunu tespit edip düzeltir.
-
-### 2. Çok Sayıda Eklenti Güncellemesi Gerektiğinde
-Standart OJS arayüzünde eklentileri tek tek güncellemek zorunda kalırsınız. Bu eklenti ile birden fazla eklentiyi seçip toplu güncelleme yapabilirsiniz.
-
-### 3. Eklenti Durumunu Hızlıca Görmek İstediğinizde
-Dashboard kartları ile anlık özet:
-- Kaç eklenti kurulu?
-- Kaç tanesi aktif/pasif?
-- Kaç tanesi güncellenebilir?
-- Sorunlu eklentiler var mı?
-
-### 4. Veritabanı Temizliği Gerektiğinde
-Silinen eklentilerin veritabanında kalan "hayalet" kayıtlarını tespit edip temizleyebilirsiniz.
-
-### 5. Versiyon Uyumsuzluklarını Düzeltmek İçin
-Elle yapılan müdahaleler veya hatalı güncellemeler sonucu oluşan DB-dosya versiyon farklılıklarını tek tıkla düzeltebilirsiniz.
+Bulk Plugin Manager is a comprehensive plugin management tool for Open Journal Systems (OJS). Unlike OJS's standard plugin gallery interface, it displays all plugins on a single page, allows bulk operations, and detects/fixes database-file synchronization issues.
 
 ---
 
-## ✨ Özellikler
+## 🎯 When to Use?
+
+### 1. When OJS Plugin Page Crashes
+If OJS's `/management/settings/website` > `Plugins` page won't load or is very slow, this is usually caused by database-file version mismatch. Bulk Plugin Manager detects and fixes this issue.
+
+### 2. When Multiple Plugin Updates Are Needed
+In the standard OJS interface, you must update plugins one by one. With this plugin, you can select multiple plugins and bulk update them.
+
+### 3. For Quick Plugin Status Overview
+Dashboard cards provide instant summary:
+- How many plugins installed?
+- How many active/inactive?
+- How many can be updated?
+- Any problematic plugins?
+
+### 4. For Database Cleanup
+Detect and clean "ghost" records left in the database from deleted plugins.
+
+### 5. To Fix Version Mismatches
+Fix DB-file version differences caused by manual interventions or failed updates with a single click.
+
+---
+
+## ✨ Features
 
 ### 🖥️ Modern Dashboard
-- **OJS Versiyonu:** Sistemin çalıştığı OJS sürümü
-- **Gallery Eklentileri:** PKP Gallery'deki uyumlu eklenti sayısı
-- **Kurulu:** Sistemde kayıtlı toplam eklenti
-- **Aktif/Pasif:** Etkin ve devre dışı eklenti sayıları
-- **DB Fix:** Veritabanı düzeltmesi gereken eklentiler
-- **Yüklenebilir:** Henüz kurulmamış uyumlu eklentiler
-- **Yüklü Daha Yeni:** Yerel versiyonu Gallery'den yeni olan eklentiler
+- **OJS Version:** Running OJS version
+- **Gallery Plugins:** Compatible plugins count from PKP Gallery
+- **Installed:** Total registered plugins
+- **Active/Inactive:** Enabled and disabled plugin counts
+- **DB Fix:** Plugins needing database fix
+- **Available:** Compatible plugins not yet installed
+- **Newer Installed:** Local version newer than Gallery
 
-### 📑 Akıllı Tab Sistemi
+### 📑 Smart Tab System
+| Tab | Description |
+|-----|-------------|
+| 🔌 **Installed** | All registered plugins with DB/File versions |
+| 🔧 **DB Fix Required** | DB version higher than Gallery (needs fix) |
+| 🔄 **Sync Issues** | DB ≠ File version (can crash OJS) |
+| 📁 **Missing Files** | DB record exists but files deleted |
+| ⬆️ **Updates** | Newer versions available |
+| 📦 **Available** | New plugins to install |
+| ⚠️ **Newer Installed** | Local version > Gallery version |
+| ❓ **Not in Gallery** | Custom/third-party plugins |
 
-| Tab | Açıklama |
-|-----|----------|
-| **Installed** | Tüm kurulu eklentiler (DB ve Dosya versiyonları yan yana) |
-| **DB Fix Required** | Veritabanı versiyonu Gallery'den yüksek olanlar |
-| **Available** | Kurulabilecek yeni eklentiler |
-| **Newer Installed** | Yerel versiyon > Gallery versiyonu |
-| **Not in Gallery** | Gallery'de olmayan özel eklentiler |
+### 🔍 Filters (Installed Tab)
+- **All:** All plugins
+- **Active:** Only enabled
+- **Inactive:** Only disabled
+- **Sync Issues:** DB ≠ File version
+- **Missing Files:** No files on server
 
-### 🔍 Gelişmiş Filtreleme (Installed Tab)
-- **All:** Tüm eklentiler
-- **Active:** Sadece aktif olanlar
-- **Inactive:** Sadece pasif olanlar
-- **Sync Issues:** DB ≠ Dosya versiyonu olanlar
-- **Missing Files:** Dosyası silinmiş ama DB'de kaydı duranlar
+### 🛠️ Action Buttons
+| Button | Function |
+|--------|----------|
+| **Fix DB** | Sync database version to file version |
+| **Clean DB** | Remove all database entries for plugin |
+| **Install** | Download and install from PKP Gallery |
+| **Update** | Update to latest Gallery version |
 
-### 🛠️ Düzeltme Araçları
-
-| Buton | İşlev |
-|-------|-------|
-| **🔧 Fix DB** | Veritabanı versiyonunu dosya versiyonuyla eşitler |
-| **📦 Install** | Eksik dosyaları Gallery'den indirir |
-| **🗑️ Clean DB** | Dosyası olmayan eklentinin DB kayıtlarını siler |
-| **⬆️ Update** | Eklentiyi Gallery'deki son sürüme günceller |
-
-### 🌍 Çoklu Dil Desteği
+### 🌍 Multi-Language Support
 - 🇬🇧 English
 - 🇹🇷 Türkçe
 
-Sağ üst köşedeki EN/TR butonlarıyla anında dil değiştirebilirsiniz.
+### 🔒 OJS 3.4+ Protection
+Automatically disables on incompatible OJS versions - no white screen or errors.
 
 ---
 
-## 🔧 Teknik Detaylar
+## 📥 Installation
 
-### Veritabanı Sorgu Mantığı
-Eklenti, OJS'nin `versions` tablosunu sorgularken akıllı bir mantık kullanır:
+1. Download `bulkPluginManager.tar.gz` from [Releases](../../releases)
+2. Extract to `/plugins/generic/` folder
+3. Go to OJS Admin Panel > Website Settings > Plugins
+4. Enable "Bulk Plugin Manager" under Generic Plugins
+5. Click "🔌 Bulk Plugin Manager" link in the sidebar
 
+**Alternative Access (Direct URL):**
 ```
-1. current=1 olan kayıt varsa → onu kullan
-2. current=1 yoksa → en yüksek versiyonu al
-```
-
-Bu sayede OJS'nin otomatik olarak `current=0` yaptığı "bozuk" eklentiler de görünür ve düzeltilebilir.
-
-### Case-Insensitive Karşılaştırma
-Veritabanında `openAIRE`, dosya sisteminde `openaire` gibi farklılıklar sorun çıkarmaz. Tüm karşılaştırmalar case-insensitive yapılır.
-
-### Versiyon Normalizasyonu
-`1.0.0` ve `1.0.0.0` aynı kabul edilir. Tüm versiyonlar 4 parçaya normalize edilir.
-
-### Güvenli SQL İşlemleri
-- SELECT için `retrieve()`
-- UPDATE/DELETE/INSERT için `update()`
-- Tüm sorgular parameterized (SQL injection koruması)
-
----
-
-## 📥 Kurulum
-
-1. Eklenti dosyasını indirin
-2. `/plugins/generic/` klasörüne çıkartın
-3. OJS Admin Panel > Website Settings > Plugins
-4. Generic Plugins > "Bulk Plugin Manager for OJS" → Enable
-5. Araç çubuğunda "Bulk Plugin Manager" linkine tıklayın
-
-**Alternatif Erişim:**
-```
-https://yourjournal.com/index.php/JOURNAL_PATH/bulkPluginManager
+https://yoursite.com/index.php/JOURNAL/bulkPluginManager
 ```
 
 ---
 
-## 🐛 Çözdüğü Yaygın Sorunlar
+## 🐛 Common Problems & Solutions
 
-### 1. "OJS Eklenti Sayfası Açılmıyor"
-**Sebep:** Veritabanındaki versiyon ile dosyadaki versiyon uyuşmuyor. OJS bu durumda sayfayı yükleyemiyor.
+### Problem 1: OJS Plugin Page Not Loading
+**Cause:** Database version doesn't match file version  
+**Solution:** Go to "Installed" tab → "Sync Issues" filter → Click "Fix DB" for each
 
-**Çözüm:** Bulk Plugin Manager > Installed tab > "Sync Issues" filtresi > Fix DB
+### Problem 2: Deleted Plugin Still in List
+**Cause:** Files deleted but database records remain  
+**Solution:** Go to "Installed" tab → "Missing Files" filter → Click "Clean DB"
 
-### 2. "Eklenti Silindi Ama Hala Listede"
-**Sebep:** Dosyalar silindi ama `versions` ve `plugin_settings` tablolarında kayıtlar duruyor.
-
-**Çözüm:** Bulk Plugin Manager > Installed tab > "Missing Files" filtresi > Clean DB
-
-### 3. "Eklenti Güncellenmiyor"
-**Sebep:** DB versiyonu Gallery versiyonundan yüksek (downgrade koruması).
-
-**Çözüm:** Bulk Plugin Manager > DB Fix Required tab > Fix DB (önce versiyonu düzelt, sonra güncelle)
-
-### 4. "current=0 Sorunu"
-**Sebep:** OJS, dosyadaki version.xml ile DB'deki versiyonu karşılaştırır. Eşleşmezse `current=0` yapar.
-
-**Çözüm:** Fix DB butonu ile DB versiyonunu dosya versiyonuyla eşitle.
+### Problem 3: Plugin Won't Update
+**Cause:** DB version higher than Gallery (downgrade protection)  
+**Solution:** Go to "DB Fix Required" tab → Click "Fix DB" → Then update normally
 
 ---
 
-## 📊 Versiyon Geçmişi
+## ⚙️ Technical Details
 
-| Versiyon | Tarih | Değişiklikler |
-|----------|-------|---------------|
-| 1.5.3 | 2024-12 | OJS 3.4+ koruma eklendi (uyumsuz versiyonda sessizce devre dışı kalır) |
-| 1.6.0 | 2024-12 | Tüm tablar her zaman görünür (boş olanlar da), yeşil 0 badge, boş tab açıklamaları |
-| 1.5.3 | 2024-12 | OJS 3.4+ koruma eklendi (uyumsuz versiyonda sessizce devre dışı) |
-| 1.5.2 | 2024-12 | Sol menü tüm admin sayfalarında görünür (Statistics dahil) |
-| 1.5.1 | 2024-12 | Sol menüde link eklendi (admin panelinde her sayfada görünür) |
-| 1.5.0 | 2024-12 | Kapsamlı Bilgi/Info tab'ı eklendi (kullanım kılavuzu) |
-| 1.4.1 | 2024-12 | İşlem sonrası otomatik yenileme kaldırıldı (daha hızlı toplu işlem) |
-| 1.4.0 | 2024-12 | Missing Files filtresi eklendi |
-| 1.3.9 | 2024-12 | Sorgu mantığı düzeltildi (current=1 önceliği) |
-| 1.3.8 | 2024-12 | DB Fix fonksiyonu güçlendirildi |
-| 1.3.7 | 2024-12 | current=0 kayıtları artık görünür |
-| 1.3.6 | 2024-12 | Performans iyileştirmesi, Clean DB düzeltmesi |
-| 1.3.5 | 2024-12 | Missing dosyalar için Install/Clean DB butonları |
-| 1.3.4 | 2024-12 | Installed tab'a DB/File sütunları eklendi |
-| 1.3.3 | 2024-12 | Case-insensitive karşılaştırma |
-| 1.3.0 | 2024-12 | Modern UI, Dashboard, Tab sistemi |
-| 1.0.0 | 2024-11 | İlk sürüm |
+- **Version Comparison:** Normalized to 4 parts (1.0.0 → 1.0.0.0)
+- **Case Insensitive:** Plugin names compared case-insensitively
+- **Current Flag:** Fixes OJS current=0 issues automatically
+- **Gallery Source:** pkp.sfu.ca/ojs/xml/plugins.xml
 
 ---
 
-## ⚠️ Önemli Notlar
+## 📊 Version History
 
-1. **Yedek Alın:** Veritabanı işlemleri yapmadan önce yedek almanız önerilir.
-
-2. **Admin Yetkisi:** Bu eklenti sadece Site Administrator ve Journal Manager rollerine açıktır.
-
-3. **OJS 3.3 Uyumluluğu:** Bu eklenti **sadece OJS 3.3.x** serisi için geliştirilmiştir (3.3.0.0 - 3.3.0.21).
-   - ✅ OJS 3.4+ sistemlere yüklenirse **otomatik olarak devre dışı kalır**
-   - ✅ Beyaz ekran veya hata oluşmaz
-   - ✅ Hata logu kaydedilir: `Bulk Plugin Manager: Bu eklenti sadece OJS 3.3.x ile uyumludur`
-
-4. **Gallery Bağımlılığı:** Eklenti bilgileri PKP Plugin Gallery'den (`pkp.sfu.ca/ojs/xml/plugins.xml`) çekilir. İnternet bağlantısı gereklidir.
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.6.2 | 2024-12 | Info button moved to header, tab descriptions added |
+| 1.6.1 | 2024-12 | Tab layout improvements, separators, mobile scroll |
+| 1.6.0 | 2024-12 | All tabs always visible, green zero badges |
+| 1.5.x | 2024-12 | Sidebar integration, OJS 3.4+ protection, Info page |
+| 1.4.x | 2024-12 | Missing Files filter, removed auto-refresh |
+| 1.3.x | 2024-12 | Modern UI, Dashboard, case-insensitive comparison |
+| 1.0.0 | 2024-12 | Initial release |
 
 ---
 
-## 🤝 Destek
+## 📌 Important Notes
 
-Sorularınız veya önerileriniz için:
+⚠️ **Backup First:** Recommended before database operations  
+👤 **Permissions:** Only Site Admin and Journal Manager can access  
+🔒 **OJS 3.4+ Safe:** Auto-disables on incompatible versions  
+🌐 **Internet Required:** Plugin info fetched from PKP Gallery
+
+---
+
+## 🤝 Support
+
 - GitHub Issues
 - OJS Community Forum
-- support@ojsservices.com
+- info@ojs-services.com
 
 ---
 
-## 📄 Lisans
+## 📄 License
 
-Bu eklenti GNU General Public License v3 altında lisanslanmıştır.
+This plugin is provided free of charge under the **GNU General Public License v3**.
 
-```
-Copyright (C) 2024 OJS Services
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-```
