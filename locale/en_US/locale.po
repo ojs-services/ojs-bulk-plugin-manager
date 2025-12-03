@@ -1,0 +1,80 @@
+msgid "plugins.generic.bulkPluginManager.displayName"
+msgstr "Bulk Plugin Manager for OJS"
+
+msgid "plugins.generic.bulkPluginManager.description"
+msgstr "Manage, update, install and fix OJS plugins in bulk. Detects version issues, missing files, and available plugins."
+
+msgid "plugins.generic.bulkPluginManager.title"
+msgstr "Bulk Plugin Update"
+
+msgid "plugins.generic.bulkPluginManager.backToPlugins"
+msgstr "Back to Plugins"
+
+msgid "plugins.generic.bulkPluginManager.openManager"
+msgstr "Open Manager"
+
+msgid "plugins.generic.bulkPluginManager.refresh"
+msgstr "Refresh"
+
+msgid "plugins.generic.bulkPluginManager.updateSelected"
+msgstr "Update Selected"
+
+msgid "plugins.generic.bulkPluginManager.updateAll"
+msgstr "Update All"
+
+msgid "plugins.generic.bulkPluginManager.selectAll"
+msgstr "Select All"
+
+msgid "plugins.generic.bulkPluginManager.pluginName"
+msgstr "Plugin Name"
+
+msgid "plugins.generic.bulkPluginManager.category"
+msgstr "Category"
+
+msgid "plugins.generic.bulkPluginManager.currentVersion"
+msgstr "Current"
+
+msgid "plugins.generic.bulkPluginManager.newVersion"
+msgstr "New"
+
+msgid "plugins.generic.bulkPluginManager.status"
+msgstr "Status"
+
+msgid "plugins.generic.bulkPluginManager.loading"
+msgstr "Checking plugins..."
+
+msgid "plugins.generic.bulkPluginManager.preparing"
+msgstr "Preparing..."
+
+msgid "plugins.generic.bulkPluginManager.updating"
+msgstr "Updating..."
+
+msgid "plugins.generic.bulkPluginManager.updated"
+msgstr "Updated"
+
+msgid "plugins.generic.bulkPluginManager.completed"
+msgstr "completed"
+
+msgid "plugins.generic.bulkPluginManager.done"
+msgstr "Done!"
+
+msgid "plugins.generic.bulkPluginManager.allUpToDate"
+msgstr "All Plugins Up to Date"
+
+msgid "plugins.generic.bulkPluginManager.noUpdates"
+msgstr "No plugins need updating."
+
+msgid "plugins.generic.bulkPluginManager.summary"
+msgstr "Summary"
+
+msgid "plugins.generic.bulkPluginManager.total"
+msgstr "Total"
+
+msgid "plugins.generic.bulkPluginManager.successful"
+msgstr "Successful"
+
+msgid "plugins.generic.bulkPluginManager.failed"
+msgstr "Failed"
+
+msgid "plugins.generic.bulkPluginManager.confirmUpdateAll"
+msgstr "Update all plugins?"
