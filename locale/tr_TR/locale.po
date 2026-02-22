@@ -1,0 +1,80 @@
+msgid "plugins.generic.bulkPluginManager.displayName"
+msgstr "OJS Toplu Eklenti Yöneticisi"
+
+msgid "plugins.generic.bulkPluginManager.description"
+msgstr "OJS eklentilerini toplu olarak yönetin, güncelleyin, yükleyin ve düzeltin. Versiyon sorunlarını, eksik dosyaları ve yüklenebilir eklentileri tespit eder."
+
+msgid "plugins.generic.bulkPluginManager.title"
+msgstr "Toplu Eklenti Güncelleme"
+
+msgid "plugins.generic.bulkPluginManager.backToPlugins"
+msgstr "Eklentilere Dön"
+
+msgid "plugins.generic.bulkPluginManager.openManager"
+msgstr "Güncelleyiciyi Aç"
+
+msgid "plugins.generic.bulkPluginManager.refresh"
+msgstr "Yenile"
+
+msgid "plugins.generic.bulkPluginManager.updateSelected"
+msgstr "Seçilenleri Güncelle"
+
+msgid "plugins.generic.bulkPluginManager.updateAll"
+msgstr "Tümünü Güncelle"
+
+msgid "plugins.generic.bulkPluginManager.selectAll"
+msgstr "Tümünü Seç"
+
+msgid "plugins.generic.bulkPluginManager.pluginName"
+msgstr "Eklenti Adı"
+
+msgid "plugins.generic.bulkPluginManager.category"
+msgstr "Kategori"
+
+msgid "plugins.generic.bulkPluginManager.currentVersion"
+msgstr "Mevcut"
+
+msgid "plugins.generic.bulkPluginManager.newVersion"
+msgstr "Yeni"
+
+msgid "plugins.generic.bulkPluginManager.status"
+msgstr "Durum"
+
+msgid "plugins.generic.bulkPluginManager.loading"
+msgstr "Eklentiler kontrol ediliyor..."
+
+msgid "plugins.generic.bulkPluginManager.preparing"
+msgstr "Hazırlanıyor..."
+
+msgid "plugins.generic.bulkPluginManager.updating"
+msgstr "Güncelleniyor..."
+
+msgid "plugins.generic.bulkPluginManager.updated"
+msgstr "Güncellendi"
+
+msgid "plugins.generic.bulkPluginManager.completed"
+msgstr "tamamlandı"
+
+msgid "plugins.generic.bulkPluginManager.done"
+msgstr "Tamamlandı!"
+
+msgid "plugins.generic.bulkPluginManager.allUpToDate"
+msgstr "Tüm Eklentiler Güncel"
+
+msgid "plugins.generic.bulkPluginManager.noUpdates"
+msgstr "Güncellenecek eklenti yok."
+
+msgid "plugins.generic.bulkPluginManager.summary"
+msgstr "Özet"
+
+msgid "plugins.generic.bulkPluginManager.total"
+msgstr "Toplam"
+
+msgid "plugins.generic.bulkPluginManager.successful"
+msgstr "Başarılı"
+
+msgid "plugins.generic.bulkPluginManager.failed"
+msgstr "Başarısız"
+
+msgid "plugins.generic.bulkPluginManager.confirmUpdateAll"
+msgstr "Tüm eklentileri güncellemek istiyor musunuz?"
