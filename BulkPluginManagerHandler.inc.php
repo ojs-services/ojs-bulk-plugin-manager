@@ -61,6 +61,31 @@ class BulkPluginManagerHandler extends Handler
         $context = $request->getContext();
         $templateMgr->assign('currentContext', $context);
 
+        // Sidebar: only show links for installed OJS Services plugins
+        $sidebarPlugins = array();
+
+        $certInfo = $this->getInstalledInfo('generic', 'certificatepro');
+        if ($certInfo['filesExist']) {
+            $sidebarPlugins[] = array(
+                'page' => 'certificatepro',
+                'op' => 'manageCertificates',
+                'label' => 'Certificates Pro',
+                'icon' => '📄'
+            );
+        }
+
+        $submitAiInfo = $this->getInstalledInfo('generic', 'submitai');
+        if ($submitAiInfo['filesExist']) {
+            $sidebarPlugins[] = array(
+                'page' => 'submitai-settings',
+                'op' => '',
+                'label' => 'SubmitAI',
+                'icon' => '🤖'
+            );
+        }
+
+        $templateMgr->assign('sidebarPlugins', $sidebarPlugins);
+
         $plugin = PluginRegistry::getPlugin('generic', 'bulkpluginmanagerplugin');
         return $templateMgr->display($plugin->getTemplateResource('index.tpl'));
     }
@@ -509,12 +534,16 @@ class BulkPluginManagerHandler extends Handler
             $categoryDir = Core::getBaseDir() . '/plugins/' . $category;
 
             // Case-insensitive directory check
+            $filesExist = false;
             if (is_dir($categoryDir)) {
                 $dirs = @scandir($categoryDir);
                 if ($dirs) {
                     foreach ($dirs as $dir) {
                         if (strtolower($dir) === strtolower($product)) {
                             $actualDir = $categoryDir . '/' . $dir;
+                            if (file_exists($actualDir . '/index.php') || file_exists($actualDir . '/version.xml')) {
+                                $filesExist = true;
+                            }
                             $versionFile = $actualDir . '/version.xml';
                             if (file_exists($versionFile)) {
                                 $versionXml = @simplexml_load_file($versionFile);
@@ -558,7 +587,7 @@ class BulkPluginManagerHandler extends Handler
 
             // Check if in gallery (for missing files case) - use cache
             $galleryInfo = null;
-            if (!$fileVersion) {
+            if (!$filesExist) {
                 $galleryKey = strtolower($category . '/' . $product);
                 if (isset($galleryProducts[$galleryKey])) {
                     $galleryInfo = $galleryProducts[$galleryKey];
@@ -572,7 +601,7 @@ class BulkPluginManagerHandler extends Handler
                 'dbVersion' => $dbVersion,
                 'fileVersion' => $fileVersion ?: '-',
                 'enabled' => $enabled,
-                'filesExist' => ($fileVersion !== null),
+                'filesExist' => $filesExist,
                 'syncIssue' => $hasSyncIssue,
                 'inGallery' => ($galleryInfo !== null),
                 'galleryVersion' => $galleryInfo ? $galleryInfo['version'] : null

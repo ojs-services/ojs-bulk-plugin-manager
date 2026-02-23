@@ -444,9 +444,10 @@
                 <li><a href="{url page="admin"}"><span class="nav-icon">🛡️</span> <span data-i18n="navAdministration">Administration</span></a></li>
 
                 <li><div class="nav-divider"></div></li>
-                <li><a href="{url page="certificatepro" op="manageCertificates"}"><span class="nav-icon">📄</span> Certificates Pro</a></li>
+                {foreach from=$sidebarPlugins item=sp}
+                    <li><a href="{url page=$sp.page op=$sp.op}"><span class="nav-icon">{$sp.icon}</span> {$sp.label}</a></li>
+                {/foreach}
                 <li><a href="{url page="bulkPluginManager"}" class="active"><span class="nav-icon">🔌</span> Bulk Plugin Manager</a></li>
-                <li><a href="{url page="submitai-settings"}"><span class="nav-icon">🤖</span> SubmitAI</a></li>
             </ul>
         </div>
     </nav>
@@ -503,7 +504,7 @@
     <!-- Sticky Footer -->
     <div class="footer">
         <span data-i18n="poweredBy">Powered by</span> <a href="https://ojs-services.com/" target="_blank">OJS Services</a> ·
-        <span data-i18n="version">Version</span> 1.8.0 ·
+        <span data-i18n="version">Version</span> 1.10.1 ·
         OJS <span id="ojsVersion">-</span>
     </div>
     </div><!-- /page-wrapper -->
@@ -687,7 +688,7 @@
             tabDesc_notInGallery: 'Custom or third-party plugins not found in PKP Gallery. These might be manually installed or from other sources.',
             noItemsDesc_downgrade: 'No plugins have newer versions than the Gallery. Everything is normal.',
             noItemsDesc_notInGallery: 'All installed plugins are available in the PKP Gallery.',
-            tabOjsServices: 'OJS Services',
+            tabOjsServices: 'OJS Services Plugins',
             ojsServicesTitle: 'OJS Services Plugins',
             ojsServicesDesc: 'Official plugins developed by OJS Services team. Install or update directly from GitHub.',
             ojsServicesLoading: 'Loading OJS Services plugins...',
@@ -968,7 +969,7 @@
             thBackupId: 'Yedek ID',
             noItemsDesc_backups: 'Yedek bulunamadı.',
             statusRestored: 'Geri Yüklendi',
-            tabOjsServices: 'OJS Services',
+            tabOjsServices: 'OJS Services Eklentileri',
             ojsServicesTitle: 'OJS Services Eklentileri',
             ojsServicesDesc: 'OJS Services ekibi tarafından geliştirilen resmi eklentiler. GitHub\'dan doğrudan yükleyin veya güncelleyin.',
             ojsServicesLoading: 'OJS Services eklentileri yükleniyor...',
@@ -1179,9 +1180,11 @@
             var badgeClass = count === 0 ? 'badge-zero' : '';
             if (tab.group === 'issues' && count > 0) badgeClass = 'badge-alert';
 
+            // OJS Services: hide badge until data is loaded
+            var badgeContent = (tab.key === 'ojsServices') ? '' : count;
             var tabExtraClass = tab.key === 'ojsServices' ? ' tab-ojs-services' : '';
             var btnHtml = '<button class="tab-btn' + tabExtraClass + '" data-tab="' + tab.key + '" onclick="setActiveTab(\'' + tab.key + '\')">' +
-                tab.icon + ' ' + t(tab.label) + ' <span class="badge ' + badgeClass + '">' + count + '</span></button>';
+                tab.icon + ' ' + t(tab.label) + ' <span class="badge ' + badgeClass + '">' + badgeContent + '</span></button>';
 
             if (tab.group === 'main') {
                 mainRowHtml += btnHtml;
@@ -2009,7 +2012,10 @@
                         renderOjsServicesCards();
                         // Update badge count
                         var badge = document.querySelector('.tab-btn[data-tab="ojsServices"] .badge');
-                        if (badge) badge.textContent = ojsServicesData.length;
+                        if (badge) {
+                            badge.textContent = ojsServicesData.length;
+                            badge.className = 'badge';
+                        }
                     } else {
                         content.innerHTML = '<div class="ojs-services-loading"><p style="color:red;">Error: ' + escapeHtml(result.message || 'Unknown error') + '</p></div>';
                     }
