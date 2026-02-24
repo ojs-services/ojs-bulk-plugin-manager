@@ -433,7 +433,7 @@
                 <li><span class="nav-group-label" data-i18n="navStatistics">Statistics</span></li>
                 <li>
                     <ul class="nav-submenu">
-                        <li><a href="{url page="stats" op="articles"}"><span class="nav-icon">📊</span> <span data-i18n="navStatsArticles">Articles</span></a></li>
+                        <li><a href="{url page="stats" op="publications"}"><span class="nav-icon">📊</span> <span data-i18n="navStatsArticles">Articles</span></a></li>
                         <li><a href="{url page="stats" op="editorial"}"><span class="nav-icon">✏️</span> <span data-i18n="navStatsEditorial">Editorial Activity</span></a></li>
                         <li><a href="{url page="stats" op="users"}"><span class="nav-icon">👤</span> <span data-i18n="navStatsUsers">Users</span></a></li>
                         <li><a href="{url page="stats" op="reports"}"><span class="nav-icon">📋</span> <span data-i18n="navStatsReports">Reports</span></a></li>
@@ -441,7 +441,7 @@
                 </li>
 
                 <li><a href="{url page="management" op="tools"}"><span class="nav-icon">🔨</span> <span data-i18n="navTools">Tools</span></a></li>
-                <li><a href="{url page="admin"}"><span class="nav-icon">🛡️</span> <span data-i18n="navAdministration">Administration</span></a></li>
+                <li><a href="{url journal="index" page="admin"}"><span class="nav-icon">🛡️</span> <span data-i18n="navAdministration">Administration</span></a></li>
 
                 <li><div class="nav-divider"></div></li>
                 {foreach from=$sidebarPlugins item=sp}
