@@ -504,7 +504,7 @@
     <!-- Sticky Footer -->
     <div class="footer">
         <span data-i18n="poweredBy">Powered by</span> <a href="https://ojs-services.com/" target="_blank">OJS Services</a> ·
-        <span data-i18n="version">Version</span> 1.10.1 ·
+        <span data-i18n="version">Version</span> 1.10.2 ·
         OJS <span id="ojsVersion">-</span>
     </div>
     </div><!-- /page-wrapper -->
@@ -1376,12 +1376,12 @@
                 rowClass = 'sync-issue-row';
             }
             
-            if (p.fileVersion === '-') {
+            if (!p.filesExist) {
                 fileBadgeClass = 'badge-orange';
                 rowClass = 'missing-file-row';
             }
-            
-            h += '<tr id="installed-row-' + escapeHtml(p.product) + '" class="' + rowClass + '" data-search="' + escapeHtml((p.displayName + ' ' + p.product).toLowerCase()) + '" data-status="' + (p.enabled ? 'active' : 'inactive') + '" data-sync="' + (hasSyncIssue ? 'yes' : 'no') + '" data-missing="' + (p.fileVersion === '-' ? 'yes' : 'no') + '">';
+
+            h += '<tr id="installed-row-' + escapeHtml(p.product) + '" class="' + rowClass + '" data-search="' + escapeHtml((p.displayName + ' ' + p.product).toLowerCase()) + '" data-status="' + (p.enabled ? 'active' : 'inactive') + '" data-sync="' + (hasSyncIssue ? 'yes' : 'no') + '" data-missing="' + (!p.filesExist ? 'yes' : 'no') + '">';
             h += '<td class="col-plugin"><span class="plugin-name">' + escapeHtml(p.displayName) + '</span><span class="plugin-id">' + escapeHtml(p.product) + '</span></td>';
             h += '<td class="col-cat"><span class="badge badge-gray">' + escapeHtml(p.category) + '</span></td>';
             h += '<td class="col-ver"><span class="badge ' + dbBadgeClass + '">' + escapeHtml(p.dbVersion) + '</span></td>';
@@ -1389,9 +1389,9 @@
             h += '<td class="col-status"><span class="status-text ' + statusClass + '">' + statusIcon + ' ' + statusText + '</span></td>';
             
             // Fix button for sync issues
-            if (hasSyncIssue && p.fileVersion !== '-') {
+            if (hasSyncIssue && p.filesExist) {
                 h += '<td class="col-action"><button class="btn btn-fix" onclick="fixInstalledDbVersion(\'' + escapeHtml(p.product) + '\', \'' + escapeHtml(p.category) + '\', \'' + escapeHtml(p.fileVersion) + '\')">' + t('btnFix') + '</button></td>';
-            } else if (p.fileVersion === '-') {
+            } else if (!p.filesExist) {
                 // Missing files - show Install or Clean DB button
                 if (p.inGallery) {
                     h += '<td class="col-action"><button class="btn btn-install" onclick="installMissingPlugin(\'' + escapeHtml(p.product) + '\', \'' + escapeHtml(p.category) + '\')">' + t('btnInstall') + '</button></td>';
