@@ -4,403 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bulk Plugin Manager</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { height: 100%; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f0f2f5; display: flex; flex-direction: row; min-height: 100vh; }
-
-        /* OJS-style Sidebar */
-        .ojs-sidebar { width: 220px; min-width: 220px; background: #002b5c; color: #fff; display: flex; flex-direction: column; min-height: 100vh; position: fixed; top: 0; left: 0; bottom: 0; z-index: 200; overflow-y: auto; }
-        .ojs-sidebar-header { padding: 18px 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .ojs-sidebar-header .context-name { font-size: 14px; font-weight: 600; color: #fff; text-decoration: none; display: block; line-height: 1.3; }
-        .ojs-sidebar-header .context-name:hover { color: #90caf9; }
-        .ojs-sidebar-nav { flex: 1; padding: 8px 0; }
-        .ojs-sidebar-nav ul { list-style: none; margin: 0; padding: 0; }
-        .ojs-sidebar-nav li { margin: 0; }
-        .ojs-sidebar-nav .nav-group-label { display: block; padding: 10px 20px 4px; font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px; }
-        .ojs-sidebar-nav a { display: block; padding: 9px 20px; color: rgba(255,255,255,0.85); text-decoration: none; font-size: 13px; transition: all 0.15s; border-left: 3px solid transparent; }
-        .ojs-sidebar-nav a:hover { background: rgba(255,255,255,0.08); color: #fff; border-left-color: rgba(255,255,255,0.3); }
-        .ojs-sidebar-nav a.active { background: rgba(255,255,255,0.12); color: #fff; border-left-color: #90caf9; font-weight: 600; }
-        .ojs-sidebar-nav a .nav-icon { margin-right: 8px; font-size: 14px; opacity: 0.8; }
-        .ojs-sidebar-nav .nav-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 16px; }
-        .ojs-sidebar-nav .nav-submenu { list-style: none; margin: 0; padding: 0; }
-        .ojs-sidebar-nav .nav-submenu a { padding: 7px 20px 7px 40px; font-size: 12px; color: rgba(255,255,255,0.65); }
-        .ojs-sidebar-nav .nav-submenu a:hover { color: rgba(255,255,255,0.9); background: rgba(255,255,255,0.05); }
-        .ojs-sidebar-toggle { display: none; position: fixed; top: 10px; left: 10px; z-index: 300; background: #002b5c; color: #fff; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 16px; }
-
-        @media (max-width: 900px) {
-            .ojs-sidebar { transform: translateX(-100%); transition: transform 0.3s; }
-            .ojs-sidebar.open { transform: translateX(0); }
-            .ojs-sidebar-toggle { display: block; }
-            .page-wrapper { margin-left: 0 !important; }
-        }
-
-        .page-wrapper { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - 220px); }
-
-        .main-content { flex: 1; display: flex; flex-direction: column; max-width: 1200px; width: 100%; margin: 0 auto; padding: 15px; }
-        
-        /* Header */
-        .header-bar { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; padding: 12px 20px; border-radius: 10px; margin-bottom: 15px; flex-shrink: 0; }
-        .back-link { margin-bottom: 8px; }
-        .back-link a { color: rgba(255,255,255,0.8); text-decoration: none; font-size: 12px; display: inline-flex; align-items: center; gap: 5px; }
-        .back-link a:hover { color: white; }
-        .header-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-        .header-title { font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
-        .header-actions { display: flex; gap: 8px; align-items: center; }
-        .lang-btn { padding: 5px 12px; border: 1px solid rgba(255,255,255,0.4); background: transparent; color: white; cursor: pointer; font-size: 12px; border-radius: 4px; transition: all 0.2s; font-weight: 500; }
-        .lang-btn:hover { background: rgba(255,255,255,0.15); }
-        .lang-btn.active { background: rgba(255,255,255,0.25); border-color: white; }
-        .btn { padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s; display: inline-flex; align-items: center; gap: 5px; }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-light { background: rgba(255,255,255,0.9); color: #1e3c72; }
-        .btn-light:hover:not(:disabled) { background: white; }
-        .btn-success { background: #28a745; color: white; }
-        .btn-success:hover:not(:disabled) { background: #218838; }
-        .btn-warning { background: #ffc107; color: #333; }
-        .btn-info { background: #17a2b8; color: white; }
-        .btn-info:hover { background: #138496; }
-        
-        /* Dashboard Cards */
-        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 15px; flex-shrink: 0; }
-        .dash-card { background: white; border-radius: 10px; padding: 12px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-        .dash-card .icon { font-size: 20px; margin-bottom: 3px; }
-        .dash-card .value { font-size: 24px; font-weight: 700; color: #333; }
-        .dash-card .label { font-size: 10px; color: #666; margin-top: 2px; }
-        .dash-card.sync { border-left: 4px solid #17a2b8; }
-        .dash-card.dbfix { border-left: 4px solid #6f42c1; }
-        .dash-card.missing { border-left: 4px solid #ff9800; }
-        .dash-card.update { border-left: 4px solid #2196f3; }
-        .dash-card.available { border-left: 4px solid #4caf50; }
-        .dash-card.downgrade { border-left: 4px solid #f44336; }
-        .dash-card.info { border-left: 4px solid #607d8b; }
-        .dash-card.installed { border-left: 4px solid #3f51b5; }
-        .dash-card.active { border-left: 4px solid #009688; }
-        .dash-card.inactive { border-left: 4px solid #9e9e9e; }
-        
-        /* Alert */
-        .alert { padding: 10px 15px; border-radius: 8px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; flex-shrink: 0; }
-        .alert-warning { background: #fff3cd; border: 1px solid #ffc107; }
-        .alert-text { font-size: 12px; color: #856404; }
-        
-        /* Tabs Container - fills remaining space */
-        .tabs-container { background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
-        
-        /* Tab Headers - Two-row design */
-        .tabs-header {
-            background: #f8f9fa;
-            border-bottom: 3px solid #e9ecef;
-            flex-shrink: 0;
-            padding: 0;
-        }
-        .tab-row {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: stretch;
-            justify-content: center;
-            gap: 0;
-        }
-        .tab-row-main {
-            border-bottom: 1px solid #e2e6ea;
-        }
-        .tab-row-secondary {
-            background: #f0f2f5;
-        }
-        .tab-row-secondary:empty {
-            display: none;
-        }
-        .tab-row-label {
-            padding: 5px 10px;
-            font-size: 9px;
-            font-weight: 700;
-            color: #9e9e9e;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            display: flex;
-            align-items: center;
-            user-select: none;
-        }
-        .tab-btn {
-            padding: 10px 14px;
-            border: none;
-            background: transparent;
-            cursor: pointer;
-            font-size: 12.5px;
-            font-weight: 600;
-            color: #6c757d;
-            white-space: nowrap;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            transition: all 0.2s;
-            border-bottom: 3px solid transparent;
-            margin-bottom: -3px;
-            position: relative;
-        }
-        .tab-row-secondary .tab-btn {
-            padding: 7px 12px;
-            font-size: 11.5px;
-            font-weight: 500;
-            margin-bottom: -1px;
-            border-bottom-width: 2px;
-        }
-        .tab-btn:hover {
-            background: #e9ecef;
-            color: #495057;
-        }
-        .tab-btn.active {
-            color: #1e3c72;
-            background: white;
-            border-bottom-color: #1e3c72;
-        }
-        .tab-btn .badge {
-            background: #dee2e6;
-            color: #495057;
-            padding: 1px 7px;
-            border-radius: 10px;
-            font-size: 10px;
-            font-weight: 700;
-            min-width: 18px;
-            text-align: center;
-        }
-        .tab-btn .badge.badge-zero {
-            background: #c8e6c9;
-            color: #2e7d32;
-        }
-        .tab-btn .badge.badge-alert {
-            background: #f44336;
-            color: white;
-        }
-        .tab-btn.active .badge {
-            background: #1e3c72;
-            color: white;
-        }
-        .tab-btn.active .badge.badge-zero {
-            background: #4caf50;
-            color: white;
-        }
-
-        /* Mobile responsive tabs */
-        @media (max-width: 768px) {
-            .tab-btn {
-                padding: 8px 8px;
-                font-size: 11px;
-            }
-            .tab-row-secondary .tab-btn {
-                padding: 6px 8px;
-                font-size: 10px;
-            }
-            .tab-btn .badge {
-                padding: 1px 5px;
-                font-size: 9px;
-            }
-        }
-        
-        /* Tab Content - scrollable */
-        .tabs-content-wrapper { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
-        .tab-content { display: none; flex-direction: column; height: 100%; overflow: hidden; }
-        .tab-content.active { display: flex; }
-        
-        /* Table */
-        .table-controls { padding: 10px 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; background: #fafafa; flex-shrink: 0; }
-        .search-input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 13px; width: 220px; max-width: 100%; }
-        .search-input:focus { outline: none; border-color: #1e3c72; }
-        .select-all { font-size: 12px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
-        .select-all input { width: 16px; height: 16px; }
-        
-        .filter-btns { display: flex; gap: 5px; }
-        .filter-btn { padding: 5px 12px; border: 1px solid #ddd; background: white; cursor: pointer; font-size: 11px; border-radius: 4px; transition: all 0.2s; }
-        .filter-btn:hover { background: #f0f0f0; }
-        .filter-btn.active { background: #1e3c72; color: white; border-color: #1e3c72; }
-        
-        .status-text.gray { color: #757575; }
-        
-        /* DB Fix Tab */
-        .dbfix-info { background: #fff3cd; border: 1px solid #ffc107; padding: 10px 15px; border-radius: 6px; margin-bottom: 12px; font-size: 12px; color: #856404; }
-        .tab-description { background: #e3f2fd; border: 1px solid #90caf9; padding: 10px 15px; border-radius: 6px; margin: 10px 15px; font-size: 12px; color: #1565c0; line-height: 1.5; }
-        .btn-fix { background: #6f42c1; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 500; transition: all 0.2s; }
-        .btn-fix:hover { background: #5a32a3; }
-        .btn-fix:disabled { opacity: 0.7; cursor: not-allowed; }
-        .btn-fix.btn-success { background: #28a745; }
-        .btn-fix.btn-danger { background: #dc3545; }
-        .btn-install { background: #17a2b8; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 500; transition: all 0.2s; }
-        .btn-install:hover { background: #138496; }
-        .btn-install:disabled { opacity: 0.7; cursor: not-allowed; }
-        .btn-install.btn-success { background: #28a745; }
-        .btn-danger-sm { background: #dc3545; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 500; transition: all 0.2s; }
-        .btn-danger-sm:hover { background: #c82333; }
-        .btn-danger-sm:disabled { opacity: 0.7; cursor: not-allowed; }
-        .badge-red { background: #dc3545; color: white; }
-        .badge-orange { background: #fd7e14; color: white; }
-        .col-action { width: 100px; text-align: center; }
-        
-        /* Sync issue row highlight */
-        .sync-issue-row { background: #fff3cd !important; }
-        .sync-issue-row:hover { background: #ffe8a1 !important; }
-        .missing-file-row { background: #f8d7da !important; }
-        .missing-file-row:hover { background: #f1b0b7 !important; }
-        .status-text.orange { color: #fd7e14; }
-        
-        .table-wrapper { flex: 1; overflow: auto; min-height: 0; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 12px; }
-        th { background: #f8f9fa; font-weight: 600; color: #333; position: sticky; top: 0; z-index: 1; }
-        tr:hover { background: #f8f9fa; }
-        tr.updating { background: #fff3cd; animation: pulse 1s infinite; }
-        tr.updated { background: #d4edda; }
-        tr.error { background: #f8d7da; }
-        
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
-        
-        .col-check { width: 40px; text-align: center; }
-        .col-plugin { min-width: 140px; }
-        .col-cat { width: 80px; }
-        .col-ver { width: 70px; }
-        .col-desc { min-width: 180px; }
-        .col-status { width: 100px; }
-        
-        .plugin-name { font-weight: 600; color: #333; display: block; }
-        .plugin-id { font-size: 10px; color: #888; }
-        .plugin-desc { font-size: 11px; color: #666; display: block; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        
-        .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; font-family: monospace; }
-        .badge-purple { background: #f3e5f5; color: #7b1fa2; }
-        .badge-orange { background: #fff3e0; color: #e65100; }
-        .badge-blue { background: #e3f2fd; color: #1565c0; }
-        .badge-green { background: #e8f5e9; color: #2e7d32; }
-        .badge-red { background: #ffebee; color: #c62828; }
-        .badge-gray { background: #eceff1; color: #546e7a; }
-        
-        .status-text { font-size: 11px; }
-        .status-text.purple { color: #7b1fa2; }
-        .status-text.orange { color: #e65100; }
-        .status-text.green { color: #2e7d32; }
-        .status-text.red { color: #c62828; }
-        .status-text.blue { color: #1565c0; }
-        
-        .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #ddd; border-top-color: #1e3c72; border-radius: 50%; animation: spin 0.8s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        
-        /* Progress Modal */
-        .progress-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1000; }
-        .progress-overlay.show { display: flex; }
-        .progress-modal { background: white; border-radius: 15px; padding: 30px; width: 90%; max-width: 400px; text-align: center; }
-        .progress-title { font-size: 16px; font-weight: 600; margin-bottom: 20px; color: #333; }
-        .progress-bar-bg { background: #e0e0e0; border-radius: 10px; height: 20px; overflow: hidden; margin-bottom: 12px; }
-        .progress-bar { height: 100%; background: linear-gradient(90deg, #1e3c72, #2a5298); transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: 600; }
-        .progress-info { font-size: 13px; color: #666; margin-bottom: 8px; }
-        .progress-current { font-size: 11px; color: #999; }
-        .progress-counters { display: flex; justify-content: center; gap: 30px; margin-top: 15px; }
-        .counter { text-align: center; }
-        .counter-value { font-size: 24px; font-weight: 700; }
-        .counter-value.success { color: #4caf50; }
-        .counter-value.error { color: #f44336; }
-        .counter-label { font-size: 10px; color: #666; }
-        
-        /* Completed Section - Üstte */
-        .completed-section { margin-bottom: 12px; background: white; border-radius: 10px; overflow: hidden; display: none; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-        .completed-section.show { display: block; }
-        .completed-header { padding: 10px 15px; background: #e8f5e9; font-weight: 600; font-size: 12px; color: #2e7d32; display: flex; align-items: center; gap: 8px; }
-        .completed-list { max-height: 120px; overflow-y: auto; padding: 8px; }
-        .completed-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 4px; margin-bottom: 4px; font-size: 11px; }
-        .completed-item.success { background: #f1f8e9; }
-        .completed-item.error { background: #ffebee; }
-        .completed-item .name { font-weight: 500; flex: 1; }
-        .completed-item .result { font-size: 10px; color: #666; }
-        
-        /* Empty / Loading */
-        .empty-state { padding: 50px 20px; text-align: center; color: #666; }
-        .empty-state .icon { font-size: 40px; margin-bottom: 10px; }
-        .empty-state h3 { color: #333; margin-bottom: 5px; }
-        .loading-state { padding: 50px 20px; text-align: center; }
-        .loading-state .spinner { width: 35px; height: 35px; border-width: 3px; margin-bottom: 10px; }
-        
-        /* Sticky Footer */
-        .footer { position: fixed; bottom: 0; left: 220px; right: 0; background: white; border-top: 1px solid #e0e0e0; padding: 8px; text-align: center; font-size: 11px; color: #888; z-index: 100; }
-        .footer a { color: #1e3c72; text-decoration: none; font-weight: 500; }
-        .footer a:hover { text-decoration: underline; }
-        @media (max-width: 900px) { .footer { left: 0; } }
-        
-        /* Body padding for fixed footer */
-        body { padding-bottom: 40px; }
-        
-        /* Info Page Styles */
-        .info-page { padding: 20px; max-width: 900px; margin: 0 auto; }
-        .info-header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #e0e0e0; }
-        .info-header h2 { color: #1e3c72; margin: 0 0 10px 0; font-size: 24px; }
-        .info-subtitle { color: #666; font-size: 14px; margin: 0; }
-        
-        .info-section { margin-bottom: 30px; background: #f8f9fa; border-radius: 10px; padding: 20px; }
-        .info-section h3 { color: #1e3c72; margin: 0 0 15px 0; font-size: 16px; padding-bottom: 10px; border-bottom: 1px solid #e0e0e0; }
-        
-        .info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; }
-        .info-item { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-        .info-item .info-icon { font-size: 20px; margin-right: 8px; }
-        .info-item strong { color: #333; font-size: 14px; }
-        .info-item p { margin: 8px 0 0 0; font-size: 12px; color: #666; line-height: 1.5; }
-        
-        .info-list { display: flex; flex-direction: column; gap: 12px; }
-        .info-list-item { display: flex; align-items: flex-start; gap: 15px; background: white; padding: 12px 15px; border-radius: 8px; }
-        .info-list-item .info-badge { min-width: 140px; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; background: #e3f2fd; color: #1565c0; white-space: nowrap; }
-        .info-list-item .filter-badge { background: #fff3e0; color: #e65100; }
-        .info-list-item p { margin: 0; font-size: 13px; color: #555; line-height: 1.5; flex: 1; }
-        
-        .info-btn { display: inline-block; padding: 6px 14px; border-radius: 4px; font-size: 11px; font-weight: 500; color: white; }
-        .info-btn.btn-fix { background: #6f42c1; }
-        .info-btn.btn-danger-sm { background: #dc3545; }
-        .info-btn.btn-install { background: #17a2b8; }
-        .info-btn.btn-update { background: #28a745; }
-        
-        .info-problems { display: flex; flex-direction: column; gap: 15px; }
-        .info-problem { background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #ff9800; }
-        .info-problem h4 { margin: 0 0 10px 0; color: #e65100; font-size: 14px; }
-        .info-problem p { margin: 5px 0; font-size: 12px; color: #555; line-height: 1.5; }
-        .info-problem strong { color: #333; }
-        
-        .info-tech { background: white; padding: 15px; border-radius: 8px; }
-        .info-tech p { margin: 8px 0; font-size: 12px; color: #555; line-height: 1.6; padding-left: 20px; position: relative; }
-        .info-tech p:before { content: "•"; position: absolute; left: 5px; color: #1e3c72; }
-        
-        .tab-info { background: #e8f5e9 !important; color: #2e7d32 !important; border-right: none !important; }
-        .tab-info:hover { background: #c8e6c9 !important; }
-        .tab-info.active { background: #4caf50 !important; color: white !important; }
-
-        /* OJS Services Tab */
-        .tab-ojs-services { background: #fff3e0 !important; color: #e65100 !important; }
-        .tab-ojs-services:hover { background: #ffe0b2 !important; }
-        .tab-ojs-services.active { background: #ff9800 !important; color: white !important; border-bottom-color: #ff9800 !important; }
-        .tab-ojs-services.active .badge { background: white !important; color: #e65100 !important; }
-
-        .ojs-services-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; padding: 16px; overflow-y: auto; }
-        .ojs-service-card { background: white; border-radius: 10px; border: 1px solid #e0e0e0; padding: 18px; transition: all 0.2s; display: flex; flex-direction: column; }
-        .ojs-service-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-color: #ff9800; }
-        .ojs-service-card .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
-        .ojs-service-card .card-title { font-size: 14px; font-weight: 700; color: #333; }
-        .ojs-service-card .card-product { font-size: 11px; color: #888; font-family: monospace; }
-        .ojs-service-card .card-status { padding: 3px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; white-space: nowrap; }
-        .ojs-service-card .card-status.available { background: #e3f2fd; color: #1565c0; }
-        .ojs-service-card .card-status.installed { background: #e8f5e9; color: #2e7d32; }
-        .ojs-service-card .card-status.update { background: #fff3e0; color: #e65100; }
-        .ojs-service-card .card-status.incompatible { background: #ffebee; color: #c62828; }
-        .ojs-service-card .card-desc { font-size: 12px; color: #555; line-height: 1.5; flex: 1; margin-bottom: 12px; }
-        .ojs-service-card .card-versions { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-        .ojs-service-card .card-ver { font-size: 10px; padding: 3px 8px; border-radius: 4px; }
-        .ojs-service-card .card-ver.repo { background: #e8f5e9; color: #2e7d32; }
-        .ojs-service-card .card-ver.local { background: #e3f2fd; color: #1565c0; }
-        .ojs-service-card .card-actions { display: flex; gap: 8px; align-items: center; }
-        .ojs-service-card .card-actions a { font-size: 11px; color: #1e3c72; text-decoration: none; }
-        .ojs-service-card .card-actions a:hover { text-decoration: underline; }
-        .btn-ojs-install { background: #ff9800; color: white; border: none; padding: 7px 16px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s; }
-        .btn-ojs-install:hover:not(:disabled) { background: #f57c00; }
-        .btn-ojs-install:disabled { opacity: 0.6; cursor: not-allowed; }
-        .btn-ojs-install.success { background: #4caf50; }
-        .btn-ojs-update { background: #2196f3; color: white; border: none; padding: 7px 16px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s; }
-        .btn-ojs-update:hover:not(:disabled) { background: #1976d2; }
-        .btn-ojs-update:disabled { opacity: 0.6; cursor: not-allowed; }
-        .ojs-services-header { padding: 16px; background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); color: white; border-radius: 8px; margin: 12px 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
-        .ojs-services-header h3 { margin: 0; font-size: 15px; font-weight: 600; }
-        .ojs-services-header p { margin: 4px 0 0; font-size: 12px; opacity: 0.9; }
-        .ojs-services-loading { padding: 40px; text-align: center; color: #666; }
-    </style>
+    <link rel="stylesheet" href="{$pluginStylePath|escape}">
 </head>
 <body>
     <!-- Mobile sidebar toggle -->
@@ -445,9 +49,8 @@
 
                 <li><div class="nav-divider"></div></li>
                 {foreach from=$sidebarPlugins item=sp}
-                    <li><a href="{url page=$sp.page op=$sp.op}"><span class="nav-icon">{$sp.icon}</span> {$sp.label}</a></li>
+                    <li><a href="{url page=$sp.page op=$sp.op}"{if $sp.page == 'bulkPluginManager'} class="active"{/if}><span class="nav-icon">{$sp.icon}</span> {$sp.label}</a></li>
                 {/foreach}
-                <li><a href="{url page="bulkPluginManager"}" class="active"><span class="nav-icon">🔌</span> Bulk Plugin Manager</a></li>
             </ul>
         </div>
     </nav>
@@ -504,7 +107,7 @@
     <!-- Sticky Footer -->
     <div class="footer">
         <span data-i18n="poweredBy">Powered by</span> <a href="https://ojs-services.com/" target="_blank">OJS Services</a> ·
-        <span data-i18n="version">Version</span> 1.10.2 ·
+        <span data-i18n="version">Version</span> 1.11.0 ·
         OJS <span id="ojsVersion">-</span>
     </div>
     </div><!-- /page-wrapper -->
@@ -546,6 +149,15 @@
             processing: 'Processing...',
             success: 'Success',
             failed: 'Failed',
+            error: 'Error',
+            errServer: 'Server error. Please reload the page and try again.',
+            selectAllMissing: 'Select all missing',
+            selectAllActionable: 'Select all fixable',
+            bulkFixDb: 'Fix DB (selected)',
+            bulkReinstall: 'Reinstall selected',
+            bulkCleanDb: 'Clean DB (selected)',
+            confirmBulkClean: 'plugin(s) will have their database records PERMANENTLY deleted (settings included). This does not touch files. Continue?',
+            bulkNoReinstallable: 'None of the selected plugins are in the PKP Gallery, so they cannot be reinstalled. Use "Clean DB" to remove orphaned records.',
             loading: 'Loading plugins...',
             selectAll: 'Select all',
             search: 'Search plugins...',
@@ -630,11 +242,11 @@
             infoTabInstalled: 'Shows all plugins registered in your database. Displays DB version, File version, and status (active/inactive). You can filter by status or find sync issues.',
             infoTabDbFix: 'Lists plugins where DB version is higher than Gallery version. This usually happens after failed updates or manual DB edits. Click "Fix DB" to sync.',
             infoTabSync: 'Plugins where DB version differs from File version. This can prevent OJS plugin page from loading. Requires synchronization.',
-            infoTabMissing: 'Plugins that exist in database but their files are deleted from server. Choose "Install" to re-download or "Clean DB" to remove database entries.',
+            infoTabMissing: 'RECOVERABLE missing files: the database record exists, files are gone, but the plugin IS in the PKP Gallery — so it can be re-downloaded. Select rows and use "Process Selected" to bulk-reinstall (restores files + syncs the DB).',
             infoTabUpdate: 'Plugins that have newer versions available in the Gallery. Select and click "Process Selected" to update.',
             infoTabAvailable: 'New plugins from PKP Gallery that are compatible with your OJS version and not yet installed.',
             infoTabDowngrade: 'Your installed version is newer than Gallery version. Usually safe to ignore - you might have a beta/dev version.',
-            infoTabNotInGallery: 'Custom or third-party plugins not found in PKP Gallery. These might be manually installed or from other sources.',
+            infoTabNotInGallery: 'ORPHANED records: a database entry exists, the files are gone, AND the plugin is not in the PKP Gallery — so it cannot be reinstalled. Select rows and use "Process Selected" to bulk Clean DB (removes the stale versions + settings rows).',
             infoFiltersTitle: 'Installed Tab Filters',
             infoFilterAll: 'Shows all installed plugins without any filter.',
             infoFilterActive: 'Shows only plugins that are currently enabled.',
@@ -643,8 +255,8 @@
             infoFilterMissing: 'Shows plugins that have database records but no files on server. Need reinstall or cleanup.',
             infoButtonsTitle: 'Action Buttons',
             infoButtonFix: 'Updates the database version to match the file version. Use when DB and File versions are different. This fixes "current=0" issues and OJS plugin page crashes.',
-            infoButtonClean: 'Removes all database entries for the plugin (versions table and plugin_settings). Use when plugin files are deleted but database records remain.',
-            infoButtonInstall: 'Downloads the plugin from PKP Gallery and installs it. Use for missing files or new plugins.',
+            infoButtonClean: 'Deletes all database records for the plugin (versions + plugin_settings). Use for ORPHANED plugins (files gone, not in Gallery). This does not touch any files. Available in bulk on the "Not in Gallery" tab and on the Installed tab\'s "Missing Files" filter.',
+            infoButtonInstall: 'Downloads the plugin from the PKP Gallery and installs it. Use for RECOVERABLE missing files or new plugins. Available in bulk on the "Missing" tab.',
             infoButtonUpdate: 'Downloads the latest version from Gallery and updates the plugin. Replaces existing files.',
             infoStatusTitle: 'Status Indicators',
             infoStatusActive: 'Plugin is enabled and running. It\'s performing its functions.',
@@ -678,14 +290,14 @@
             noItemsDesc_missing: 'All installed plugins have their files intact. No missing files.',
             noItemsDesc_updatable: 'All plugins are up to date. No updates available.',
             noItemsDesc_available: 'All compatible plugins from the Gallery are already installed.',
-            tabDesc_installedList: 'Shows all plugins registered in your database. Displays DB version, File version, and status (active/inactive). You can filter by status or find sync issues.',
+            tabDesc_installedList: 'Overview of every plugin registered in your database (DB version, File version, active/inactive). Use the "Missing Files" filter to review all plugins whose files are gone — a bulk bar then lets you Reinstall the recoverable ones (in Gallery) or Clean DB the orphaned ones in one go.',
             tabDesc_dbFix: 'Lists plugins where DB version is higher than Gallery. Usually happens after failed updates or manual DB edits. Click "Fix DB" to sync.',
             tabDesc_syncIssue: 'Plugins where DB version differs from File version. This can prevent OJS plugin page from loading. Requires synchronization.',
-            tabDesc_missing: 'Plugins exist in database but files are deleted from server. Choose "Install" to re-download or "Clean DB" to remove database entries.',
+            tabDesc_missing: 'RECOVERABLE missing files — the plugin IS in the PKP Gallery, so it can be re-downloaded. Tick the plugins you want back and click "Process Selected" to bulk-reinstall (restores files + syncs the DB).',
             tabDesc_updatable: 'Plugins with newer versions available in Gallery. Select and click "Process Selected" to update.',
             tabDesc_available: 'New plugins from PKP Gallery compatible with your OJS version and not yet installed.',
             tabDesc_downgrade: 'Your installed version is newer than Gallery version. Usually safe to ignore - you might have a beta/dev version.',
-            tabDesc_notInGallery: 'Custom or third-party plugins not found in PKP Gallery. These might be manually installed or from other sources.',
+            tabDesc_notInGallery: 'ORPHANED records — a database entry exists but the files are gone and the plugin is not in the PKP Gallery, so it cannot be reinstalled. Tick them and click "Process Selected" to bulk Clean DB (removes the stale versions + settings rows).',
             noItemsDesc_downgrade: 'No plugins have newer versions than the Gallery. Everything is normal.',
             noItemsDesc_notInGallery: 'All installed plugins are available in the PKP Gallery.',
             tabOjsServices: 'OJS Services Plugins',
@@ -751,64 +363,15 @@
             processing: 'İşleniyor...',
             success: 'Başarılı',
             failed: 'Başarısız',
-            loading: 'Eklentiler yükleniyor...',
-            selectAll: 'Tümünü seç',
-            search: 'Eklenti ara...',
-            allUpToDate: 'Tüm eklentiler güncel!',
-            completed: 'Tamamlandı!',
-            confirmProcess: 'eklenti işlenecek. Devam edilsin mi?',
-            confirmFix: 'uyumsuzluk düzeltilecek. Devam edilsin mi?',
-            dashOJS: 'OJS Versiyonu',
-            dashGallery: 'Gallery Eklentileri',
-            dashInstalled: 'Yüklü',
-            dashActive: 'Aktif',
-            dashInactive: 'Pasif',
-            dashSync: 'Senkron Sorunu',
-            dashDbFix: 'DB Düzeltme',
-            dashMissing: 'Eksik Dosya',
-            dashUpdate: 'Güncelleme',
-            dashAvailable: 'Yüklenebilir',
-            dashDowngrade: 'Yüklü Daha Yeni',
-            tabInstalled: 'Kurulu',
-            tabDbFix: 'DB Düzeltme',
-            tabSync: 'Senkron Sorunu',
-            tabMissing: 'Eksik Dosya',
-            tabUpdate: 'Güncelleme',
-            tabAvailable: 'Yüklenebilir',
-            tabDowngrade: 'Daha Yeni',
-            tabDesc_notInGallery: 'PKP Gallery\'de bulunamayan özel veya üçüncü taraf eklentiler. Manuel olarak kurulmuş veya başka kaynaklardan gelmiş olabilir.',
-            
-            // New Translations
-            tabBackups: 'Backups',
-            tabDesc_backups: 'Manage plugin backups created during updates. You can restore a previous version if an update fails.',
-            btnRestore: '♻️ Restore',
-            btnDelete: '🗑️ Delete',
-            btnFixAll: '🔧 Fix All',
-            confirmRestore: 'Are you sure you want to restore this backup? Current files will be replaced.',
-            confirmDeleteBackup: 'Are you sure you want to delete this backup?',
-            confirmFixAll: 'This will fix all database issues in this list one by one. Continue?',
-            restoring: 'Restoring...',
-            restored: 'Restored',
-            deleting: 'Deleting...',
-            deleted: 'Deleted',
-            thDate: 'Date',
-            thBackupId: 'Backup ID',
-            noItemsDesc_backups: 'No backups found.',
-            statusRestored: 'Restored'
-        },
-        tr: {
-            title: 'OJS Toplu Eklenti Yöneticisi',
-            backToOJS: 'OJS Paneline Geri Dön',
-            refresh: 'Yenile',
-            processSelected: 'Seçilenleri İşle',
-            syncWarning: 'Versiyon uyumsuzlukları tespit edildi. Güncelleme öncesi düzeltilmeli.',
-            fixSync: 'Uyumsuzlukları Düzelt',
-            completedOps: 'Tamamlanan İşlemler',
-            poweredBy: 'Geliştiren',
-            version: 'Versiyon',
-            processing: 'İşleniyor...',
-            success: 'Başarılı',
-            failed: 'Başarısız',
+            error: 'Hata',
+            errServer: 'Sunucu hatası. Lütfen sayfayı yenileyip tekrar deneyin.',
+            selectAllMissing: 'Tüm eksikleri seç',
+            selectAllActionable: 'Onarılabilir olanları seç',
+            bulkFixDb: 'Seçilenleri DB Düzelt',
+            bulkReinstall: 'Seçilenleri Yeniden Kur',
+            bulkCleanDb: 'Seçilenleri DB’den Temizle',
+            confirmBulkClean: 'eklentinin veritabanı kaydı KALICI olarak silinecek (ayarlar dahil). Dosyalara dokunulmaz. Devam edilsin mi?',
+            bulkNoReinstallable: 'Seçilen eklentilerin hiçbiri PKP Gallery’de yok, bu yüzden yeniden kurulamaz. Yetim kayıtları kaldırmak için "DB Temizle" kullanın.',
             loading: 'Eklentiler yükleniyor...',
             selectAll: 'Tümünü seç',
             search: 'Eklenti ara...',
@@ -893,11 +456,11 @@
             infoTabInstalled: 'Veritabanınızda kayıtlı tüm eklentileri gösterir. DB versiyonu, Dosya versiyonu ve durum (aktif/pasif) bilgilerini içerir. Duruma göre filtreleyebilir veya senkron sorunlarını bulabilirsiniz.',
             infoTabDbFix: 'DB versiyonu Gallery versiyonundan yüksek olan eklentileri listeler. Bu genellikle başarısız güncellemeler veya manuel DB değişikliklerinden sonra olur. "DB Düzelt" ile senkronize edin.',
             infoTabSync: 'DB versiyonu Dosya versiyonundan farklı olan eklentiler. Bu durum OJS eklenti sayfasının yüklenmesini engelleyebilir. Senkronizasyon gerektirir.',
-            infoTabMissing: 'Veritabanı var ama dosyaları sunucudan silinmiş eklentiler. Yeniden indirmek için "Yükle" veya DB kayıtlarını silmek için "DB Temizle" seçin.',
+            infoTabMissing: 'KURTARILABİLİR eksik dosyalar: veritabanı kaydı var, dosyalar silinmiş ama eklenti PKP Gallery\'de MEVCUT — yani yeniden indirilebilir. Satırları işaretleyip "Seçilenleri İşle" ile toplu yeniden kurun (dosyalar geri gelir + DB senkronlanır).',
             infoTabUpdate: 'Gallery\'de daha yeni versiyonları bulunan eklentiler. Seçip "Seçilenleri İşle" ile güncelleyin.',
             infoTabAvailable: 'PKP Gallery\'den OJS versiyonunuzla uyumlu ve henüz kurulmamış yeni eklentiler.',
             infoTabDowngrade: 'Kurulu versiyonunuz Gallery versiyonundan daha yeni. Genellikle güvenle göz ardı edilebilir - beta/geliştirme versiyonunuz olabilir.',
-            infoTabNotInGallery: 'PKP Gallery\'de bulunamayan özel veya üçüncü taraf eklentiler. Manuel olarak kurulmuş veya başka kaynaklardan gelmiş olabilir.',
+            infoTabNotInGallery: 'YETİM kayıtlar: veritabanı kaydı var ama dosyalar silinmiş VE eklenti PKP Gallery\'de yok — yani yeniden kurulamaz. Satırları işaretleyip "Seçilenleri İşle" ile toplu DB Temizle yapın (yetim versions + settings kayıtlarını siler).',
             infoFiltersTitle: 'Kurulu Tab Filtreleri',
             infoFilterAll: 'Tüm kurulu eklentileri filtresiz gösterir.',
             infoFilterActive: 'Sadece şu anda etkin olan eklentileri gösterir.',
@@ -906,8 +469,8 @@
             infoFilterMissing: 'Veritabanı kaydı olan ama sunucuda dosyası olmayan eklentileri gösterir. Yeniden kurulum veya temizlik gerekir.',
             infoButtonsTitle: 'İşlem Butonları',
             infoButtonFix: 'Veritabanı versiyonunu dosya versiyonuyla eşitler. DB ve Dosya versiyonları farklı olduğunda kullanın. "current=0" sorunlarını ve OJS eklenti sayfası çökmelerini düzeltir.',
-            infoButtonClean: 'Eklentinin tüm veritabanı kayıtlarını siler (versions tablosu ve plugin_settings). Eklenti dosyaları silinmiş ama veritabanı kayıtları kalmışsa kullanın.',
-            infoButtonInstall: 'Eklentiyi PKP Gallery\'den indirir ve kurar. Eksik dosyalar veya yeni eklentiler için kullanın.',
+            infoButtonClean: 'Eklentinin tüm veritabanı kayıtlarını siler (versions + plugin_settings). YETİM eklentiler için kullanın (dosya yok, galeride yok). Dosyalara dokunmaz. "Gallery\'de Yok" sekmesinde ve Installed sekmesinin "Eksik Dosya" filtresinde toplu olarak yapılabilir.',
+            infoButtonInstall: 'Eklentiyi PKP Gallery\'den indirir ve kurar. KURTARILABİLİR eksik dosyalar veya yeni eklentiler için kullanın. "Missing" sekmesinde toplu olarak yapılabilir.',
             infoButtonUpdate: 'Gallery\'den en son versiyonu indirir ve eklentiyi günceller. Mevcut dosyaların üzerine yazar.',
             infoStatusTitle: 'Durum Göstergeleri',
             infoStatusActive: 'Eklenti etkin ve çalışıyor. Fonksiyonlarını yerine getiriyor.',
@@ -943,14 +506,14 @@
             noItemsDesc_available: 'Gallery\'deki tüm uyumlu eklentiler zaten kurulu.',
             noItemsDesc_downgrade: 'Hiçbir eklentinin versiyonu Gallery\'den yüksek değil. Her şey normal.',
             noItemsDesc_notInGallery: 'Tüm kurulu eklentiler PKP Gallery\'de mevcut.',
-            tabDesc_installedList: 'Veritabanınızda kayıtlı tüm eklentileri gösterir. DB versiyonu, Dosya versiyonu ve durum (aktif/pasif) bilgilerini içerir. Duruma göre filtreleyebilir veya senkron sorunlarını bulabilirsiniz.',
+            tabDesc_installedList: 'Veritabanınızdaki tüm eklentilerin genel görünümü (DB versiyonu, Dosya versiyonu, aktif/pasif). "Eksik Dosya" filtresiyle dosyası silinmiş tüm eklentileri görün — çıkan toplu çubukla kurtarılabilir olanları (galeride) Yeniden Kur, yetimleri tek seferde DB Temizle yapabilirsiniz.',
             tabDesc_dbFix: 'DB versiyonu Gallery versiyonundan yüksek olan eklentileri listeler. Bu genellikle başarısız güncellemeler veya manuel DB değişikliklerinden sonra olur. "DB Düzelt" ile senkronize edin.',
             tabDesc_syncIssue: 'DB versiyonu Dosya versiyonundan farklı olan eklentiler. Bu durum OJS eklenti sayfasının yüklenmesini engelleyebilir. Senkronizasyon gerektirir.',
-            tabDesc_missing: 'Veritabanında var ama dosyaları sunucudan silinmiş eklentiler. Yeniden indirmek için "Yükle" veya DB kayıtlarını silmek için "DB Temizle" seçin.',
+            tabDesc_missing: 'KURTARILABİLİR eksik dosyalar — eklenti PKP Gallery\'de mevcut, yani yeniden indirilebilir. Geri istediklerini işaretleyip "Seçilenleri İşle" ile toplu yeniden kur (dosyalar geri gelir + DB senkronlanır).',
             tabDesc_updatable: 'Gallery\'de daha yeni versiyonları bulunan eklentiler. Seçip "Seçilenleri İşle" ile güncelleyin.',
             tabDesc_available: 'PKP Gallery\'den OJS versiyonunuzla uyumlu ve henüz kurulmamış yeni eklentiler.',
             tabDesc_downgrade: 'Kurulu versiyonunuz Gallery versiyonundan daha yeni. Genellikle güvenle göz ardı edilebilir - beta/geliştirme versiyonunuz olabilir.',
-            tabDesc_notInGallery: 'PKP Gallery\'de bulunamayan özel veya üçüncü taraf eklentiler. Manuel olarak kurulmuş veya başka kaynaklardan gelmiş olabilir.',
+            tabDesc_notInGallery: 'YETİM kayıtlar — veritabanı kaydı var ama dosyalar silinmiş ve eklenti PKP Gallery\'de yok, yani yeniden kurulamaz. İşaretleyip "Seçilenleri İşle" ile toplu DB Temizle yap (yetim versions + settings kayıtlarını siler).',
             
             // New Translations TR
             tabBackups: 'Yedekler',
@@ -1008,6 +571,7 @@
     var currentLang = 'en';
     var apiUrl = '{url page="bulkPluginManager" op="getUpdatablePlugins"}';
     var updateUrl = '{url page="bulkPluginManager" op="updatePlugin"}';
+    var csrfToken = '{$csrfToken|escape:"javascript"}';
     var data = {};
     var processing = false;
     var processedProducts = {};
@@ -1017,7 +581,13 @@
     var installed = { total: 0, active: 0, inactive: 0 };
     
     function t(key) { return i18n[currentLang][key] || key; }
-    
+
+    // Append the CSRF token to a POST body string. All state-changing requests
+    // (updatePlugin / installOjsServicesPlugin) require it server-side.
+    function withCsrf(body) {
+        return (body ? body + '&' : '') + 'csrfToken=' + encodeURIComponent(csrfToken);
+    }
+
     function escapeHtml(text) {
         if (text === null || text === undefined) return '';
         return String(text)
@@ -1079,7 +649,7 @@
                 try {
                     var result = JSON.parse(xhr.responseText);
                     if (result.status === 'error') {
-                        document.getElementById('tabsContent').innerHTML = '<div class="empty-state"><p style="color:red;">Error: ' + result.message + '</p></div>';
+                        document.getElementById('tabsContent').innerHTML = '<div class="empty-state"><p style="color:red;">' + t('error') + ': ' + escapeHtml(result.message) + '</p></div>';
                         return;
                     }
                     
@@ -1111,13 +681,15 @@
                     renderTabs();
                     activateFirstTab();
                 } catch(e) {
-                    document.getElementById('tabsContent').innerHTML = '<div class="empty-state"><p style="color:red;">JSON Error: ' + e.message + '</p></div>';
+                    document.getElementById('tabsContent').innerHTML = '<div class="empty-state"><p style="color:red;">' + t('errServer') + '</p></div>';
                 }
+            } else if (xhr.readyState === 4) {
+                document.getElementById('tabsContent').innerHTML = '<div class="empty-state"><p style="color:red;">' + t('errServer') + ' (' + xhr.status + ')</p></div>';
             }
         };
         xhr.send();
     }
-    
+
     function renderDashboard() {
         var h = '';
         h += '<div class="dash-card info"><div class="icon">🖥️</div><div class="value">' + escapeHtml(ojsVersion) + '</div><div class="label">' + t('dashOJS') + '</div></div>';
@@ -1159,7 +731,7 @@
             { key: 'syncIssue', icon: '🔄', label: 'tabSync', selectable: false, group: 'issues' },
             { key: 'missing', icon: '📁', label: 'tabMissing', selectable: true, group: 'issues' },
             { key: 'downgrade', icon: '⚠️', label: 'tabDowngrade', selectable: false, group: 'other' },
-            { key: 'notInGallery', icon: '❓', label: 'tabNotInGallery', selectable: false, group: 'other' },
+            { key: 'notInGallery', icon: '❓', label: 'tabNotInGallery', selectable: true, group: 'other' },
             { key: 'backups', icon: '💾', label: 'tabBackups', selectable: false, special: 'backups', group: 'other' }
         ];
 
@@ -1311,13 +883,14 @@
         xhr.open('POST', '{url page="bulkPluginManager" op="updatePlugin"}', true);
         xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
         xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
+            if (xhr.readyState !== 4) return;
+            if (xhr.status === 200) {
                 try {
                     var result = JSON.parse(xhr.responseText);
                     if (result.status === 'success') {
                         btn.innerHTML = '✅ ' + t('fixed');
                         btn.classList.add('btn-success');
-                        row.style.background = '#d4edda';
+                        if (row) row.style.background = '#d4edda';
                         // Reload after 1 second
                         setTimeout(function() { loadPlugins(); }, 1000);
                     } else {
@@ -1329,12 +902,17 @@
                 } catch(e) {
                     btn.innerHTML = '❌ ' + t('error');
                     btn.disabled = false;
+                    alert(t('errServer'));
                 }
+            } else {
+                btn.innerHTML = '❌ ' + t('error');
+                btn.disabled = false;
+                alert(t('errServer') + ' (' + xhr.status + ')');
             }
         };
-        xhr.send('product=' + encodeURIComponent(product) + '&category=' + encodeURIComponent(category) + '&action=dbfix');
+        xhr.send(withCsrf('product=' + encodeURIComponent(product) + '&category=' + encodeURIComponent(category) + '&action=dbfix'));
     }
-    
+
     function renderInstalledTabContent() {
         var items = data.installedList || [];
         
@@ -1350,8 +928,27 @@
         h += '<button class="filter-btn" onclick="filterInstalled(\'missing\', this)">' + t('filterMissing') + '</button>';
         h += '</div>';
         h += '</div>';
-        
+
+        // Bulk action bar for actionable rows: sync issues (Fix DB), recoverable
+        // missing (Reinstall), and orphaned missing (Clean DB).
+        var missingItems = items.filter(function(p) { return !p.filesExist; });
+        var syncItems = items.filter(function(p) { return p.filesExist && p.syncIssue; });
+        if (missingItems.length > 0 || syncItems.length > 0) {
+            h += '<div class="bulk-bar" id="installedBulk">';
+            h += '<label class="select-all"><input type="checkbox" id="imSelectAll" onchange="toggleInstalledBulk(this)"> ' + t('selectAllActionable') + '</label>';
+            h += '<span class="bulk-count" id="imCount">0</span>';
+            if (syncItems.length > 0) {
+                h += '<button class="btn btn-fix" id="imFixBtn" disabled onclick="bulkInstalledAction(\'dbfix\')">🔧 ' + t('bulkFixDb') + '</button>';
+            }
+            if (missingItems.length > 0) {
+                h += '<button class="btn btn-install" id="imReinstallBtn" disabled onclick="bulkInstalledAction(\'reinstall\')">🔄 ' + t('bulkReinstall') + '</button>';
+                h += '<button class="btn btn-danger-sm" id="imCleanBtn" disabled onclick="bulkInstalledAction(\'clean\')">🗑️ ' + t('bulkCleanDb') + '</button>';
+            }
+            h += '</div>';
+        }
+
         h += '<div class="table-wrapper"><table><thead><tr>';
+        h += '<th class="col-check"></th>';
         h += '<th class="col-plugin">' + t('thPlugin') + '</th>';
         h += '<th class="col-cat">' + t('thCategory') + '</th>';
         h += '<th class="col-ver">' + t('thDB') + '</th>';
@@ -1382,6 +979,13 @@
             }
 
             h += '<tr id="installed-row-' + escapeHtml(p.product) + '" class="' + rowClass + '" data-search="' + escapeHtml((p.displayName + ' ' + p.product).toLowerCase()) + '" data-status="' + (p.enabled ? 'active' : 'inactive') + '" data-sync="' + (hasSyncIssue ? 'yes' : 'no') + '" data-missing="' + (!p.filesExist ? 'yes' : 'no') + '">';
+            if (!p.filesExist) {
+                h += '<td class="col-check"><input type="checkbox" class="imcheck" data-kind="missing" data-product="' + escapeHtml(p.product) + '" data-category="' + escapeHtml(p.category) + '" data-ingallery="' + (p.inGallery ? 'yes' : 'no') + '" onchange="checkInstalledBulk()"></td>';
+            } else if (hasSyncIssue) {
+                h += '<td class="col-check"><input type="checkbox" class="imcheck" data-kind="sync" data-product="' + escapeHtml(p.product) + '" data-category="' + escapeHtml(p.category) + '" onchange="checkInstalledBulk()"></td>';
+            } else {
+                h += '<td class="col-check"></td>';
+            }
             h += '<td class="col-plugin"><span class="plugin-name">' + escapeHtml(p.displayName) + '</span><span class="plugin-id">' + escapeHtml(p.product) + '</span></td>';
             h += '<td class="col-cat"><span class="badge badge-gray">' + escapeHtml(p.category) + '</span></td>';
             h += '<td class="col-ver"><span class="badge ' + dbBadgeClass + '">' + escapeHtml(p.dbVersion) + '</span></td>';
@@ -1427,7 +1031,71 @@
             }
         });
     }
-    
+
+    // --- Bulk actions for actionable rows in the Installed tab ---
+    // kinds: 'sync' (Fix DB), 'missing' (Reinstall if in gallery / Clean DB otherwise)
+    function checkInstalledBulk() {
+        var checked = document.querySelectorAll('#tab-installedList .imcheck:checked');
+        var countEl = document.getElementById('imCount');
+        if (countEl) countEl.textContent = checked.length;
+        var nSync = 0, nReinstall = 0, nMissing = 0;
+        checked.forEach(function(cb) {
+            var kind = cb.getAttribute('data-kind');
+            if (kind === 'sync') {
+                nSync++;
+            } else if (kind === 'missing') {
+                nMissing++;
+                if (cb.getAttribute('data-ingallery') === 'yes') nReinstall++;
+            }
+        });
+        var fixBtn = document.getElementById('imFixBtn');
+        var reBtn = document.getElementById('imReinstallBtn');
+        var clBtn = document.getElementById('imCleanBtn');
+        if (fixBtn) fixBtn.disabled = nSync === 0 || processing;
+        if (reBtn) reBtn.disabled = nReinstall === 0 || processing;
+        if (clBtn) clBtn.disabled = nMissing === 0 || processing;
+    }
+
+    function toggleInstalledBulk(cb) {
+        document.querySelectorAll('#tab-installedList .imcheck').forEach(function(box) {
+            var row = box.closest('tr');
+            if (row && row.style.display !== 'none') box.checked = cb.checked;
+        });
+        checkInstalledBulk();
+    }
+
+    function bulkInstalledAction(mode) {
+        var checked = Array.prototype.slice.call(document.querySelectorAll('#tab-installedList .imcheck:checked'));
+        if (checked.length === 0) return;
+        var list = [];
+        checked.forEach(function(cb) {
+            var kind = cb.getAttribute('data-kind');
+            var inGallery = cb.getAttribute('data-ingallery') === 'yes';
+            var action = null;
+            if (mode === 'dbfix' && kind === 'sync') action = 'dbfix';
+            else if (mode === 'reinstall' && kind === 'missing' && inGallery) action = 'missing';
+            else if (mode === 'clean' && kind === 'missing') action = 'cleandb';
+            if (!action) return;
+            list.push({
+                product: cb.getAttribute('data-product'),
+                category: cb.getAttribute('data-category'),
+                displayName: cb.getAttribute('data-product'),
+                _action: action
+            });
+        });
+        if (list.length === 0) {
+            if (mode === 'reinstall') alert(t('bulkNoReinstallable'));
+            return;
+        }
+        if (mode === 'clean') {
+            if (!confirm(list.length + ' ' + t('confirmBulkClean'))) return;
+        } else {
+            if (!confirm(list.length + ' ' + t('confirmProcess'))) return;
+        }
+        currentAction = 'bulk_' + mode;
+        startProcess(list);
+    }
+
     function fixInstalledDbVersion(product, category, fileVersion) {
         var btn = event.target;
         var row = document.getElementById('installed-row-' + product);
@@ -1438,19 +1106,22 @@
         xhr.open('POST', '{url page="bulkPluginManager" op="updatePlugin"}', true);
         xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
         xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
+            if (xhr.readyState !== 4) return;
+            if (xhr.status === 200) {
                 try {
                     var result = JSON.parse(xhr.responseText);
                     if (result.status === 'success') {
                         btn.innerHTML = '✅ ' + t('fixed');
                         btn.classList.remove('btn-fix');
                         btn.classList.add('btn-success');
-                        row.classList.remove('sync-issue-row');
-                        row.style.background = '#d4edda';
-                        // Update DB version cell to show file version
-                        var cells = row.querySelectorAll('td');
-                        if (cells[2]) {
-                            cells[2].innerHTML = '<span class="badge badge-blue">' + fileVersion + '</span>';
+                        if (row) {
+                            row.classList.remove('sync-issue-row');
+                            row.style.background = '#d4edda';
+                            // Update DB version cell to show file version
+                            var cells = row.querySelectorAll('td');
+                            if (cells[2]) {
+                                cells[2].innerHTML = '<span class="badge badge-blue">' + escapeHtml(fileVersion) + '</span>';
+                            }
                         }
                     } else {
                         btn.innerHTML = '❌ ' + t('error');
@@ -1461,12 +1132,17 @@
                 } catch(e) {
                     btn.innerHTML = '❌ ' + t('error');
                     btn.disabled = false;
+                    alert(t('errServer'));
                 }
+            } else {
+                btn.innerHTML = '❌ ' + t('error');
+                btn.disabled = false;
+                alert(t('errServer') + ' (' + xhr.status + ')');
             }
         };
-        xhr.send('product=' + encodeURIComponent(product) + '&category=' + encodeURIComponent(category) + '&action=dbfix');
+        xhr.send(withCsrf('product=' + encodeURIComponent(product) + '&category=' + encodeURIComponent(category) + '&action=dbfix'));
     }
-    
+
     function installMissingPlugin(product, category) {
         var btn = event.target;
         var row = document.getElementById('installed-row-' + product);
@@ -1477,15 +1153,18 @@
         xhr.open('POST', '{url page="bulkPluginManager" op="updatePlugin"}', true);
         xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
         xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
+            if (xhr.readyState !== 4) return;
+            if (xhr.status === 200) {
                 try {
                     var result = JSON.parse(xhr.responseText);
                     if (result.status === 'success') {
                         btn.innerHTML = '✅ ' + t('installed');
                         btn.classList.remove('btn-install');
                         btn.classList.add('btn-success');
-                        row.classList.remove('missing-file-row');
-                        row.style.background = '#d4edda';
+                        if (row) {
+                            row.classList.remove('missing-file-row');
+                            row.style.background = '#d4edda';
+                        }
                     } else {
                         btn.innerHTML = '❌ ' + t('error');
                         btn.classList.add('btn-danger');
@@ -1495,10 +1174,15 @@
                 } catch(e) {
                     btn.innerHTML = '❌ ' + t('error');
                     btn.disabled = false;
+                    alert(t('errServer'));
                 }
+            } else {
+                btn.innerHTML = '❌ ' + t('error');
+                btn.disabled = false;
+                alert(t('errServer') + ' (' + xhr.status + ')');
             }
         };
-        xhr.send('product=' + encodeURIComponent(product) + '&category=' + encodeURIComponent(category) + '&action=install');
+        xhr.send(withCsrf('product=' + encodeURIComponent(product) + '&category=' + encodeURIComponent(category) + '&action=install'));
     }
     
     function cleanDbEntry(product, category) {
@@ -1513,15 +1197,18 @@
         xhr.open('POST', '{url page="bulkPluginManager" op="updatePlugin"}', true);
         xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
         xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
+            if (xhr.readyState !== 4) return;
+            if (xhr.status === 200) {
                 try {
                     var result = JSON.parse(xhr.responseText);
                     if (result.status === 'success') {
                         btn.innerHTML = '✅ ' + t('cleaned');
                         btn.classList.remove('btn-danger-sm');
                         btn.classList.add('btn-success');
-                        row.style.opacity = '0.5';
-                        row.style.background = '#d4edda';
+                        if (row) {
+                            row.style.opacity = '0.5';
+                            row.style.background = '#d4edda';
+                        }
                     } else {
                         btn.innerHTML = '❌ ' + t('error');
                         btn.disabled = false;
@@ -1530,10 +1217,15 @@
                 } catch(e) {
                     btn.innerHTML = '❌ ' + t('error');
                     btn.disabled = false;
+                    alert(t('errServer'));
                 }
+            } else {
+                btn.innerHTML = '❌ ' + t('error');
+                btn.disabled = false;
+                alert(t('errServer') + ' (' + xhr.status + ')');
             }
         };
-        xhr.send('product=' + encodeURIComponent(product) + '&category=' + encodeURIComponent(category) + '&action=cleandb');
+        xhr.send(withCsrf('product=' + encodeURIComponent(product) + '&category=' + encodeURIComponent(category) + '&action=cleandb'));
     }
     
     function renderInfoTabContent() {
@@ -1779,6 +1471,7 @@
                 p._dataKey = key;
                 if (key === 'available') p._action = 'install';
                 else if (key === 'missing') p._action = 'missing';
+                else if (key === 'notInGallery') p._action = 'cleandb';
                 else p._action = 'update';
                 selected.push(p);
             }
@@ -1789,6 +1482,11 @@
     function processSelected() {
         var selected = getSelectedPlugins();
         if (selected.length === 0) return;
+        // If the selection contains destructive DB-clean actions, warn explicitly.
+        var cleanCount = selected.filter(function(p) { return p._action === 'cleandb'; }).length;
+        if (cleanCount > 0) {
+            if (!confirm(cleanCount + ' ' + t('confirmBulkClean'))) return;
+        }
         if (confirm(selected.length + ' ' + t('confirmProcess'))) startProcess(selected);
     }
     
@@ -1807,6 +1505,11 @@
     
     function startProcess(list) {
         processing = true;
+        // Structural changes (reinstall / DB clean) alter which rows exist, so the
+        // list must be reloaded from the server when the run finishes.
+        var needsReload = list.some(function(p) {
+            return p._action === 'cleandb' || p._action === 'missing' || p._action === 'install' || p._action === 'dbfix';
+        });
         document.getElementById('processBtn').disabled = true;
         document.getElementById('progressOverlay').classList.add('show');
         document.getElementById('completedSection').classList.add('show');
@@ -1833,9 +1536,10 @@
                 if (data.syncIssue && data.syncIssue.every(function(p) { return processedProducts[p.product]; })) {
                     document.getElementById('syncAlert').style.display = 'none';
                 }
-                // Refresh list if backup was restored or deleted
-                if (currentAction === 'restore' || currentAction === 'delete_backup') {
-                    setTimeout(function() { loadPlugins(); }, 1000);
+                // Refresh list if backup was restored/deleted, or after any
+                // structural change (reinstall / DB clean) so the tables reflect reality.
+                if (needsReload || currentAction === 'restore' || currentAction === 'delete_backup') {
+                    setTimeout(function() { loadPlugins(); }, 1200);
                 }
                 return;
             }
@@ -1862,10 +1566,11 @@
             xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
             xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
             xhr.onreadystatechange = function() {
-                if (xhr.readyState === 4) {
-                    done++;
-                    var success = false, errorMsg = '';
-                    
+                if (xhr.readyState !== 4) return;
+                done++;
+                var success = false, errorMsg = '';
+
+                if (xhr.status === 200) {
                     try {
                         var result = JSON.parse(xhr.responseText);
                         if (result.status === 'success') {
@@ -1873,30 +1578,34 @@
                             processedProducts[p.product] = true;
                             if (row) { row.classList.remove('updating'); row.classList.add('updated'); }
                             if (st) st.innerHTML = '<span class="status-text green">✓ ' + t('statusDone') + '</span>';
-                            
+
                             var cb = document.querySelector('.pcheck[data-product="' + p.product + '"]');
                             if (cb) { cb.disabled = true; cb.checked = true; }
                         } else {
                             fail++; errorMsg = result.message || t('failed');
                             if (row) { row.classList.remove('updating'); row.classList.add('error'); }
-                            if (st) st.innerHTML = '<span class="status-text red">✗ ' + errorMsg + '</span>';
+                            if (st) st.innerHTML = '<span class="status-text red">✗ ' + escapeHtml(errorMsg) + '</span>';
                         }
                     } catch(e) {
-                        fail++; errorMsg = 'Error';
+                        fail++; errorMsg = t('errServer');
                         if (row) { row.classList.remove('updating'); row.classList.add('error'); }
-                        if (st) st.innerHTML = '<span class="status-text red">✗ Error</span>';
+                        if (st) st.innerHTML = '<span class="status-text red">✗ ' + escapeHtml(errorMsg) + '</span>';
                     }
-                    
-                    addToCompleted(p, success, errorMsg);
-                    updateProgress();
-                    setTimeout(function() { next(i + 1); }, 300);
+                } else {
+                    fail++; errorMsg = t('errServer') + ' (' + xhr.status + ')';
+                    if (row) { row.classList.remove('updating'); row.classList.add('error'); }
+                    if (st) st.innerHTML = '<span class="status-text red">✗ ' + escapeHtml(errorMsg) + '</span>';
                 }
+
+                addToCompleted(p, success, errorMsg);
+                updateProgress();
+                setTimeout(function() { next(i + 1); }, 300);
             };
-            
+
             var params = 'product=' + encodeURIComponent(p.product) + '&category=' + encodeURIComponent(p.category) + '&action=' + encodeURIComponent(p._action || 'update');
             if (p.backupId) params += '&backupId=' + encodeURIComponent(p.backupId);
-            
-            xhr.send(params);
+
+            xhr.send(withCsrf(params));
         }
         
         updateProgress();
@@ -2020,8 +1729,10 @@
                         content.innerHTML = '<div class="ojs-services-loading"><p style="color:red;">Error: ' + escapeHtml(result.message || 'Unknown error') + '</p></div>';
                     }
                 } catch(e) {
-                    content.innerHTML = '<div class="ojs-services-loading"><p style="color:red;">JSON Error: ' + escapeHtml(e.message) + '</p></div>';
+                    content.innerHTML = '<div class="ojs-services-loading"><p style="color:red;">' + t('errServer') + '</p></div>';
                 }
+            } else if (xhr.readyState === 4) {
+                content.innerHTML = '<div class="ojs-services-loading"><p style="color:red;">' + t('errServer') + ' (' + xhr.status + ')</p></div>';
             }
         };
         xhr.send();
@@ -2095,7 +1806,8 @@
         xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
         xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
+            if (xhr.readyState !== 4) return;
+            if (xhr.status === 200) {
                 try {
                     var result = JSON.parse(xhr.responseText);
                     if (result.status === 'success') {
@@ -2115,13 +1827,17 @@
                         setTimeout(function() { btn.textContent = origText; btn.disabled = false; }, 3000);
                     }
                 } catch(e) {
-                    btn.textContent = '❌ Error';
+                    btn.textContent = '❌ ' + t('errServer');
                     btn.disabled = false;
                     setTimeout(function() { btn.textContent = origText; btn.disabled = false; }, 3000);
                 }
+            } else {
+                btn.textContent = '❌ ' + t('errServer');
+                btn.disabled = false;
+                setTimeout(function() { btn.textContent = origText; btn.disabled = false; }, 3000);
             }
         };
-        xhr.send('product=' + encodeURIComponent(product) + '&downloadUrl=' + encodeURIComponent(downloadUrl) + '&action=' + encodeURIComponent(action) + '&category=' + encodeURIComponent(category || 'generic'));
+        xhr.send(withCsrf('product=' + encodeURIComponent(product) + '&downloadUrl=' + encodeURIComponent(downloadUrl) + '&action=' + encodeURIComponent(action) + '&category=' + encodeURIComponent(category || 'generic')));
     }
 
     // Override setActiveTab to lazy-load OJS Services data

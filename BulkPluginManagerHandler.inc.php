@@ -14,6 +14,12 @@ class BulkPluginManagerHandler extends Handler
     public function __construct()
     {
         parent::__construct();
+        // Site admins AND journal managers may use the tool. Letting a journal
+        // manager (editor) manage plugins without needing a site-admin account is
+        // the plugin's core purpose. Plugin FILES are inherently site-wide in OJS,
+        // but ENABLING a plugin is per-journal (plugin_settings.context_id), so a
+        // manager installing a plugin does not activate it in other journals.
+        // Requests are still CSRF-protected (see requireCSRF).
         $this->addRoleAssignment(
             array(ROLE_ID_SITE_ADMIN, ROLE_ID_MANAGER),
             array('index', 'getUpdatablePlugins', 'updatePlugin', 'getOjsServicesPlugins', 'installOjsServicesPlugin')
@@ -61,16 +67,29 @@ class BulkPluginManagerHandler extends Handler
         $context = $request->getContext();
         $templateMgr->assign('currentContext', $context);
 
-        // Sidebar: only show links for installed OJS Services plugins
+        // Sidebar: show links for all installed OJS Services plugins
+        // Priority order matches unified sidebar pattern: AUM=10, BPM=20, CertPro=30, SubmitAI=40, MailSettings=50
         $sidebarPlugins = array();
 
-        $certInfo = $this->getInstalledInfo('generic', 'certificatepro');
+        $aumInfo = $this->getInstalledInfo('generic', 'advancedUserManager');
+        if ($aumInfo['filesExist']) {
+            $sidebarPlugins[] = array(
+                'page' => 'advancedUserManager',
+                'op' => '',
+                'label' => 'Advanced User Manager',
+                'icon' => '📊',
+                'priority' => 10
+            );
+        }
+
+        $certInfo = $this->getInstalledInfo('generic', 'reviewCertificatePro');
         if ($certInfo['filesExist']) {
             $sidebarPlugins[] = array(
                 'page' => 'certificatepro',
                 'op' => 'manageCertificates',
                 'label' => 'Certificates Pro',
-                'icon' => '📄'
+                'icon' => '📄',
+                'priority' => 30
             );
         }
 
@@ -80,14 +99,115 @@ class BulkPluginManagerHandler extends Handler
                 'page' => 'submitai-settings',
                 'op' => '',
                 'label' => 'SubmitAI',
-                'icon' => '🤖'
+                'icon' => '🤖',
+                'priority' => 40
             );
         }
+
+        $mailInfo = $this->getInstalledInfo('generic', 'mailSettings');
+        if ($mailInfo['filesExist']) {
+            $sidebarPlugins[] = array(
+                'page' => 'mailSettings',
+                'op' => '',
+                'label' => 'Email Settings',
+                'icon' => '✉️',
+                'priority' => 50
+            );
+        }
+
+        // Add BPM itself to the sidebar list (always present since we are on BPM page)
+        $sidebarPlugins[] = array(
+            'page' => 'bulkPluginManager',
+            'op' => '',
+            'label' => 'Bulk Plugin Manager',
+            'icon' => '🔌',
+            'priority' => 20
+        );
+
+        // Sort by priority
+        usort($sidebarPlugins, function($a, $b) {
+            return ($a['priority'] ?? 99) - ($b['priority'] ?? 99);
+        });
 
         $templateMgr->assign('sidebarPlugins', $sidebarPlugins);
 
         $plugin = PluginRegistry::getPlugin('generic', 'bulkpluginmanagerplugin');
+
+        // CSRF token for AJAX POST requests, and plugin base URL for the external stylesheet
+        $templateMgr->assign('csrfToken', $request->getSession()->getCSRFToken());
+        $templateMgr->assign('pluginStylePath', $request->getBaseUrl() . '/' . $plugin->getPluginPath() . '/css/bulkPluginManager.css');
+
         return $templateMgr->display($plugin->getTemplateResource('index.tpl'));
+    }
+
+    /**
+     * Verify the CSRF token on a state-changing request; abort with a JSON error if invalid.
+     */
+    private function requireCSRF($request)
+    {
+        if (!$request->checkCSRF()) {
+            $this->jsonResponse('error', 'Invalid or missing CSRF token. Please reload the page and try again.');
+        }
+    }
+
+    /**
+     * Safely parse an XML string from an untrusted remote source.
+     * Disables network access and (on PHP < 8) external entity loading to block XXE.
+     * @return SimpleXMLElement|false
+     */
+    private function parseXmlSafe($xmlContent)
+    {
+        if (!is_string($xmlContent) || $xmlContent === '') {
+            return false;
+        }
+        // libxml_disable_entity_loader is deprecated/removed in PHP 8 where external
+        // entity loading is already off by default; guard the call for older runtimes.
+        if (PHP_VERSION_ID < 80000 && function_exists('libxml_disable_entity_loader')) {
+            $previous = libxml_disable_entity_loader(true);
+        }
+        $xml = @simplexml_load_string($xmlContent, 'SimpleXMLElement', LIBXML_NONET);
+        if (isset($previous)) {
+            libxml_disable_entity_loader($previous);
+        }
+        return $xml;
+    }
+
+    /**
+     * Guard against Zip Slip: reject any archive entry whose path would escape the
+     * extraction directory (contains "..", is absolute, or has a null byte).
+     * @param $names array list of entry names inside the archive
+     * @throws Exception on the first unsafe entry
+     */
+    private function assertSafeArchive($names)
+    {
+        foreach ($names as $name) {
+            $normalized = str_replace('\\', '/', (string) $name);
+            if (strpos($normalized, "\0") !== false) {
+                throw new Exception('Unsafe archive entry (null byte): ' . $name);
+            }
+            // Absolute paths (unix "/..." or Windows "C:...")
+            if ($normalized === '' || $normalized[0] === '/' || preg_match('#^[A-Za-z]:#', $normalized)) {
+                throw new Exception('Unsafe archive entry (absolute path): ' . $name);
+            }
+            // Any ".." path segment
+            foreach (explode('/', $normalized) as $segment) {
+                if ($segment === '..') {
+                    throw new Exception('Unsafe archive entry (path traversal): ' . $name);
+                }
+            }
+        }
+    }
+
+    /**
+     * Collect all entry names from an open ZipArchive for validation.
+     */
+    private function zipEntryNames($zip)
+    {
+        $names = array();
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $names[] = $zip->getNameIndex($i);
+        }
+        return $names;
     }
 
     /**
@@ -223,17 +343,21 @@ class BulkPluginManagerHandler extends Handler
         $xmlContent = '';
 
         if (!$forceRefresh && file_exists($cacheFile) && (time() - filemtime($cacheFile) < self::CACHE_DURATION)) {
-            $xmlContent = file_get_contents($cacheFile);
+            // Guard against a concurrent cache write/delete between the check above and the read.
+            $cached = @file_get_contents($cacheFile);
+            $xmlContent = ($cached === false) ? '' : $cached;
             $debug['source'] = 'cache';
-        } else {
+        }
+        if ($xmlContent === '') {
             $client = Application::get()->getHttpClient();
             try {
-                $response = $client->request('GET', 'https://pkp.sfu.ca/ojs/xml/plugins.xml');
+                $response = $client->request('GET', 'https://pkp.sfu.ca/ojs/xml/plugins.xml', ['timeout' => 30, 'connect_timeout' => 10]);
                 $xmlContent = (string) $response->getBody();
                 file_put_contents($cacheFile, $xmlContent);
                 $debug['source'] = 'network';
             } catch (Exception $e) {
                 // If network fails, try cache even if expired
+                error_log('BulkPluginManager: PKP gallery fetch failed: ' . $e->getMessage());
                 if (file_exists($cacheFile)) {
                     $xmlContent = file_get_contents($cacheFile);
                     $debug['source'] = 'expired_cache';
@@ -243,7 +367,7 @@ class BulkPluginManagerHandler extends Handler
             }
         }
 
-        $xml = @simplexml_load_string($xmlContent);
+        $xml = $this->parseXmlSafe($xmlContent);
         if (!$xml) {
             return array('status' => 'error', 'message' => 'XML parse failed');
         }
@@ -655,6 +779,8 @@ class BulkPluginManagerHandler extends Handler
      */
     public function updatePlugin($args, $request)
     {
+        $this->requireCSRF($request);
+
         $product = $request->getUserVar('product');
         $category = $request->getUserVar('category');
         $action = $request->getUserVar('action'); // 'update', 'install', 'sync_update', 'sync_only', 'missing', 'dbfix', 'restore', 'delete_backup'
@@ -702,12 +828,14 @@ class BulkPluginManagerHandler extends Handler
                     if (isset($safetyZip) && file_exists($safetyZip)) {
                         $sz = new ZipArchive();
                         if ($sz->open($safetyZip) === true) {
+                            $this->assertSafeArchive($this->zipEntryNames($sz));
                             $sz->extractTo($pluginDir);
                             $sz->close();
                         }
                     }
                     throw new Exception('Restore failed: cannot open backup');
                 }
+                $this->assertSafeArchive($this->zipEntryNames($zip));
                 $zip->extractTo($pluginDir);
                 $zip->close();
 
@@ -961,11 +1089,23 @@ class BulkPluginManagerHandler extends Handler
             try {
                 if (class_exists('PharData')) {
                     $phar = new PharData($packageFile);
+                    // Zip Slip guard: validate every entry path before extracting.
+                    $names = array();
+                    $iterator = new RecursiveIteratorIterator($phar, RecursiveIteratorIterator::SELF_FIRST);
+                    foreach ($iterator as $item) {
+                        $names[] = $iterator->getSubPathName();
+                    }
+                    $this->assertSafeArchive($names);
                     $phar->extractTo($extractDir);
                     $extractSuccess = true;
                 }
             } catch (Exception $e) {
                 error_log('PharData extract failed: ' . $e->getMessage());
+                // If the failure was our own safety check, do not silently fall through
+                // to tar — abort so an unsafe archive is never extracted.
+                if (strpos($e->getMessage(), 'Unsafe archive entry') !== false) {
+                    throw $e;
+                }
             }
 
             // Method 2: System tar command (fallback)
@@ -975,6 +1115,13 @@ class BulkPluginManagerHandler extends Handler
                 // Check if tar command exists
                 exec('tar --version', $output, $returnCode);
                 if ($returnCode === 0) {
+                    // Zip Slip guard: list archive contents and validate before extracting.
+                    $listOut = array();
+                    $listRc = 0;
+                    exec("tar -tzf " . escapeshellarg($packageFile), $listOut, $listRc);
+                    if ($listRc === 0) {
+                        $this->assertSafeArchive($listOut);
+                    }
                     exec("tar -xzf " . escapeshellarg($packageFile) . " -C " . escapeshellarg($extractDir), $output, $returnCode);
                     if ($returnCode === 0) {
                         $extractSuccess = true;
@@ -1122,7 +1269,7 @@ class BulkPluginManagerHandler extends Handler
         }
 
         $cleanXml = preg_replace('/<!DOCTYPE[^>]*>/', '', $content);
-        $xml = @simplexml_load_string($cleanXml);
+        $xml = $this->parseXmlSafe($cleanXml);
         if ($xml && isset($xml->release)) {
             return (string) $xml->release;
         }
@@ -1215,8 +1362,8 @@ class BulkPluginManagerHandler extends Handler
     {
         $client = Application::get()->getHttpClient();
         try {
-            $response = $client->request('GET', 'https://pkp.sfu.ca/ojs/xml/plugins.xml');
-            $xml = @simplexml_load_string((string) $response->getBody());
+            $response = $client->request('GET', 'https://pkp.sfu.ca/ojs/xml/plugins.xml', ['timeout' => 30, 'connect_timeout' => 10]);
+            $xml = $this->parseXmlSafe((string) $response->getBody());
         } catch (Exception $e) {
             return null;
         }
@@ -1333,16 +1480,37 @@ class BulkPluginManagerHandler extends Handler
         $allRepos = array();
         $page = 1;
 
+        // Base request headers. An optional GitHub token (config.inc.php:
+        // [bulk_plugin_manager] github_token = "...") raises the anonymous
+        // 60 requests/hour limit to 5000/hour.
+        $headers = array(
+            'Accept' => 'application/vnd.github.v3+json',
+            'User-Agent' => 'OJS-BulkPluginManager'
+        );
+        $githubToken = $this->getGithubToken();
+        if ($githubToken) {
+            $headers['Authorization'] = 'token ' . $githubToken;
+        }
+
         do {
             $url = 'https://api.github.com/orgs/ojs-services/repos?per_page=100&page=' . $page;
             try {
                 $response = $client->request('GET', $url, [
                     'timeout' => 20,
-                    'headers' => [
-                        'Accept' => 'application/vnd.github.v3+json',
-                        'User-Agent' => 'OJS-BulkPluginManager/1.10'
-                    ]
+                    'connect_timeout' => 10,
+                    'headers' => $headers
                 ]);
+                // Stop early and fall back to cache if we are rate-limited.
+                $remaining = $response->getHeaderLine('X-RateLimit-Remaining');
+                if ($remaining !== '' && (int) $remaining <= 0) {
+                    error_log('BulkPluginManager: GitHub API rate limit reached; using cached repo list.');
+                    if (file_exists($cacheFile)) {
+                        $cached = json_decode(file_get_contents($cacheFile), true);
+                        if ($cached !== null) {
+                            return $cached;
+                        }
+                    }
+                }
                 $repos = json_decode((string)$response->getBody(), true);
                 if (!is_array($repos) || empty($repos)) {
                     break;
@@ -1350,7 +1518,8 @@ class BulkPluginManagerHandler extends Handler
                 $allRepos = array_merge($allRepos, $repos);
                 $page++;
             } catch (Exception $e) {
-                // On failure, try expired cache
+                // On failure (network error or 403 rate limit), fall back to expired cache
+                error_log('BulkPluginManager: GitHub org repos fetch failed: ' . $e->getMessage());
                 if (file_exists($cacheFile)) {
                     $cached = json_decode(file_get_contents($cacheFile), true);
                     return $cached ?: array();
@@ -1425,6 +1594,13 @@ class BulkPluginManagerHandler extends Handler
             $branch = $repoInfo['default_branch'];
             $githubDescription = $repoInfo['description'];
 
+            // Sanitize repo/branch names before building URLs (defense-in-depth in case
+            // the GitHub API response is tampered with): allow only safe ref characters.
+            if (!preg_match('#^[A-Za-z0-9._/-]+$#', (string) $repo)
+                || !preg_match('#^[A-Za-z0-9._/-]+$#', (string) $branch)) {
+                continue;
+            }
+
             // Cache key uses sanitized repo name
             $safeName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $repo);
 
@@ -1437,7 +1613,7 @@ class BulkPluginManagerHandler extends Handler
             } else {
                 $rawUrl = 'https://raw.githubusercontent.com/ojs-services/' . $repo . '/' . $branch . '/version.xml';
                 try {
-                    $response = $client->request('GET', $rawUrl, ['timeout' => 15]);
+                    $response = $client->request('GET', $rawUrl, ['timeout' => 15, 'connect_timeout' => 10]);
                     $versionXmlContent = (string)$response->getBody();
                     file_put_contents($cacheFile, $versionXmlContent);
                 } catch (Exception $e) {
@@ -1456,7 +1632,7 @@ class BulkPluginManagerHandler extends Handler
 
             // Parse version.xml
             $cleanXml = preg_replace('/<!DOCTYPE[^>]*>/', '', $versionXmlContent);
-            $vxml = @simplexml_load_string($cleanXml);
+            $vxml = $this->parseXmlSafe($cleanXml);
             if (!$vxml || !isset($vxml->application)) {
                 continue; // Invalid version.xml, skip
             }
@@ -1524,10 +1700,16 @@ class BulkPluginManagerHandler extends Handler
                 $releaseData = json_decode(file_get_contents($releaseCacheFile), true);
             } else {
                 $releaseUrl = 'https://api.github.com/repos/ojs-services/' . $repo . '/releases/latest';
+                $releaseHeaders = array('Accept' => 'application/vnd.github.v3+json', 'User-Agent' => 'OJS-BulkPluginManager');
+                $ghToken = $this->getGithubToken();
+                if ($ghToken) {
+                    $releaseHeaders['Authorization'] = 'token ' . $ghToken;
+                }
                 try {
                     $response = $client->request('GET', $releaseUrl, [
                         'timeout' => 15,
-                        'headers' => ['Accept' => 'application/vnd.github.v3+json', 'User-Agent' => 'OJS-BulkPluginManager/1.10']
+                        'connect_timeout' => 10,
+                        'headers' => $releaseHeaders
                     ]);
                     $releaseData = json_decode((string)$response->getBody(), true);
                     file_put_contents($releaseCacheFile, json_encode($releaseData));
@@ -1589,6 +1771,8 @@ class BulkPluginManagerHandler extends Handler
      */
     public function installOjsServicesPlugin($args, $request)
     {
+        $this->requireCSRF($request);
+
         $product = $request->getUserVar('product');
         $downloadUrl = $request->getUserVar('downloadUrl');
         $action = $request->getUserVar('action'); // 'install' or 'update'
@@ -1608,10 +1792,11 @@ class BulkPluginManagerHandler extends Handler
             $this->jsonResponse('error', 'Invalid category');
         }
 
-        // Security: validate download URL is from GitHub ojs-services
-        if (strpos($downloadUrl, 'github.com/ojs-services/') === false &&
-            strpos($downloadUrl, 'api.github.com/repos/ojs-services/') === false) {
-            $this->jsonResponse('error', 'Invalid download URL: must be from ojs-services GitHub');
+        // Security (SSRF guard): strictly validate the download URL with parse_url.
+        // A substring check is insufficient — e.g. https://evil.com/github.com/ojs-services/
+        // would pass. Require HTTPS, a GitHub host, and an /ojs-services/ path.
+        if (!$this->isAllowedGithubUrl($downloadUrl)) {
+            $this->jsonResponse('error', 'Invalid download URL: must be an HTTPS ojs-services GitHub URL');
         }
 
         try {
@@ -1623,6 +1808,44 @@ class BulkPluginManagerHandler extends Handler
         } catch (Exception $e) {
             $this->jsonResponse('error', $e->getMessage(), $product);
         }
+    }
+
+    /**
+     * Optional GitHub API token from config.inc.php to raise the anonymous rate limit.
+     * Section [bulk_plugin_manager], key github_token. Returns '' when unset.
+     */
+    private function getGithubToken()
+    {
+        $token = Config::getVar('bulk_plugin_manager', 'github_token', '');
+        return is_string($token) ? trim($token) : '';
+    }
+
+    /**
+     * SSRF guard: return true only for HTTPS URLs on a trusted GitHub host whose
+     * path targets the ojs-services organization.
+     */
+    private function isAllowedGithubUrl($url)
+    {
+        $parsed = parse_url((string) $url);
+        if (!$parsed || !isset($parsed['scheme'], $parsed['host'], $parsed['path'])) {
+            return false;
+        }
+        if (strtolower($parsed['scheme']) !== 'https') {
+            return false;
+        }
+        $host = strtolower($parsed['host']);
+        $allowedHosts = array('github.com', 'api.github.com', 'codeload.github.com', 'objects.githubusercontent.com');
+        if (!in_array($host, $allowedHosts, true)) {
+            return false;
+        }
+        // Path must reference the ojs-services org (e.g. /ojs-services/... or /repos/ojs-services/...).
+        // objects.githubusercontent.com serves opaque asset paths from a github.com release, so
+        // it is allowed by host alone.
+        if ($host === 'objects.githubusercontent.com') {
+            return true;
+        }
+        return (strpos($parsed['path'], '/ojs-services/') !== false
+            || strpos($parsed['path'], '/repos/ojs-services/') !== false);
     }
 
     private function jsonResponse($status, $message, $product = null)

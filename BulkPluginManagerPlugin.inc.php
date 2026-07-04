@@ -70,7 +70,7 @@ class BulkPluginManagerPlugin extends GenericPlugin {
             $backendPages = array(
                 'management', 'manageIssues', 'stats', 'submissions',
                 'workflow', 'settings', 'tools', 'admin', 'user',
-                'bulkPluginManager', 'submitai-settings', 'mailSettings', 'certificatepro'
+                'bulkPluginManager', 'submitai-settings', 'mailSettings', 'certificatepro', 'advancedUserManager'
             );
             if (in_array($page, $backendPages)) {
                 $isBackend = true;
@@ -96,27 +96,28 @@ class BulkPluginManagerPlugin extends GenericPlugin {
                 if ($isAdmin) {
                     $templateMgr->addJavaScript(
                         'bulkPluginManagerSidebar',
-                        '
-                        document.addEventListener("DOMContentLoaded", function() {
-                            var nav = document.querySelector(".pkp_nav_list, .app__nav, nav[role=navigation] ul, .pkpNav__list");
-                            if (!nav) nav = document.querySelector("#navigationPrimary ul, .pkp_navigation_primary ul");
-                            if (!nav || document.getElementById("bulkPluginManagerLink")) return;
-
-                            var li = document.createElement("li");
-                            li.id = "bulkPluginManagerLink";
-                            li.className = nav.children[0] ? nav.children[0].className : "";
-                            li.style.cssText = "border-top: 1px solid rgba(255,255,255,0.1); margin-top: 10px; padding-top: 10px;";
-
-                            var a = document.createElement("a");
-                            a.href = "' . $url . '";
-                            a.innerHTML = "\uD83D\uDD0C Bulk Plugin Manager";
-                            a.style.cssText = "display: flex; align-items: center; gap: 8px; color: inherit; text-decoration: none;";
-                            a.className = nav.querySelector("a") ? nav.querySelector("a").className : "";
-
-                            li.appendChild(a);
-                            nav.appendChild(li);
-                        });
-                        ',
+                        '(function(){' .
+                        'var S=window.OJS_SIDEBAR_ITEMS=window.OJS_SIDEBAR_ITEMS||[];' .
+                        'S.push({id:"bpmNavLink",icon:"\uD83D\uDD0C",text:"Bulk Plugin Manager",url:' . json_encode($url) . ',pg:"bulkPluginManager",p:20});' .
+                        'if(!window._ojsSbRender){window._ojsSbRender=function(){' .
+                        'var items=window.OJS_SIDEBAR_ITEMS;if(!items||!items.length)return;' .
+                        'var nav=document.querySelector(".pkp_nav_list,.app__nav,nav[role=navigation] ul,.pkpNav__list");' .
+                        'if(!nav)nav=document.querySelector("#navigationPrimary ul,.pkp_navigation_primary ul");' .
+                        'if(!nav){if(!window._ojsSbR)window._ojsSbR=0;if(window._ojsSbR++<30)setTimeout(window._ojsSbRender,200);return;}' .
+                        'window._ojsSbR=0;if(nav.tagName==="NAV"){var ul=nav.querySelector("ul");if(ul)nav=ul;}' .
+                        'var old=nav.querySelectorAll("[data-ojs-sidebar]");for(var i=0;i<old.length;i++)old[i].parentNode.removeChild(old[i]);' .
+                        'items.sort(function(a,b){return(a.p||99)-(b.p||99);});' .
+                        'var sep=document.createElement("li");sep.setAttribute("data-ojs-sidebar","1");' .
+                        'sep.style.cssText="border-top:1px solid rgba(255,255,255,0.15);margin:12px 0 6px;padding:0;list-style:none;";nav.appendChild(sep);' .
+                        'var u=window.location.href;items.forEach(function(it){' .
+                        'var li=document.createElement("li");li.id=it.id;li.setAttribute("data-ojs-sidebar","1");' .
+                        'var a=document.createElement("a");a.className="app__navItem";a.href=it.url;a.innerHTML=it.icon+" "+it.text;' .
+                        'a.style.cssText="display:flex;align-items:center;gap:8px;padding:8px 16px;color:inherit;text-decoration:none;font-size:0.9em;font-weight:600;";' .
+                        'if(u.indexOf(it.pg)>-1){a.classList.add("app__navItem--isCurrent");a.style.opacity="1";}' .
+                        'li.appendChild(a);nav.appendChild(li);});};}' .
+                        'clearTimeout(window._ojsSbT);window._ojsSbT=setTimeout(window._ojsSbRender,100);' .
+                        'if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",function(){clearTimeout(window._ojsSbT);window._ojsSbT=setTimeout(window._ojsSbRender,100);});}' .
+                        '})();',
                         array('inline' => true, 'contexts' => array('backend'))
                     );
                 }
