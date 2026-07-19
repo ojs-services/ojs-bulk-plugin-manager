@@ -1,63 +1,7 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bulk Plugin Manager</title>
-    <link rel="stylesheet" href="{$pluginStylePath|escape}">
-</head>
-<body>
-    <!-- Mobile sidebar toggle -->
-    <button class="ojs-sidebar-toggle" onclick="document.querySelector('.ojs-sidebar').classList.toggle('open')">☰</button>
+{extends file="layouts/backend.tpl"}
 
-    <!-- OJS Sidebar -->
-    <nav class="ojs-sidebar">
-        <div class="ojs-sidebar-header">
-            <a href="{url page="index"}" class="context-name" id="sidebarContextName">
-                {if $currentContext}{$currentContext->getLocalizedName()|escape}{else}OJS{/if}
-            </a>
-        </div>
-        <div class="ojs-sidebar-nav">
-            <ul>
-                <li><a href="{url page="submissions"}"><span class="nav-icon">📋</span> <span data-i18n="navSubmissions">Submissions</span></a></li>
-                <li><a href="{url page="manageIssues"}"><span class="nav-icon">📰</span> <span data-i18n="navIssues">Issues</span></a></li>
-                <li><div class="nav-divider"></div></li>
-
-                <li><span class="nav-group-label" data-i18n="navSettings">Settings</span></li>
-                <li>
-                    <ul class="nav-submenu">
-                        <li><a href="{url page="management" op="settings" path="context"}"><span class="nav-icon">📖</span> <span data-i18n="navJournal">Journal</span></a></li>
-                        <li><a href="{url page="management" op="settings" path="website"}"><span class="nav-icon">🌐</span> <span data-i18n="navWebsite">Website</span></a></li>
-                        <li><a href="{url page="management" op="settings" path="workflow"}"><span class="nav-icon">⚙️</span> <span data-i18n="navWorkflow">Workflow</span></a></li>
-                        <li><a href="{url page="management" op="settings" path="distribution"}"><span class="nav-icon">📤</span> <span data-i18n="navDistribution">Distribution</span></a></li>
-                        <li><a href="{url page="management" op="settings" path="access"}"><span class="nav-icon">👥</span> <span data-i18n="navUsersRoles">Users & Roles</span></a></li>
-                    </ul>
-                </li>
-
-                <li><span class="nav-group-label" data-i18n="navStatistics">Statistics</span></li>
-                <li>
-                    <ul class="nav-submenu">
-                        <li><a href="{url page="stats" op="publications"}"><span class="nav-icon">📊</span> <span data-i18n="navStatsArticles">Articles</span></a></li>
-                        <li><a href="{url page="stats" op="editorial"}"><span class="nav-icon">✏️</span> <span data-i18n="navStatsEditorial">Editorial Activity</span></a></li>
-                        <li><a href="{url page="stats" op="users"}"><span class="nav-icon">👤</span> <span data-i18n="navStatsUsers">Users</span></a></li>
-                        <li><a href="{url page="stats" op="reports"}"><span class="nav-icon">📋</span> <span data-i18n="navStatsReports">Reports</span></a></li>
-                    </ul>
-                </li>
-
-                <li><a href="{url page="management" op="tools"}"><span class="nav-icon">🔨</span> <span data-i18n="navTools">Tools</span></a></li>
-                <li><a href="{url journal="index" page="admin"}"><span class="nav-icon">🛡️</span> <span data-i18n="navAdministration">Administration</span></a></li>
-
-                <li><div class="nav-divider"></div></li>
-                {foreach from=$sidebarPlugins item=sp}
-                    <li><a href="{url page=$sp.page op=$sp.op}"{if $sp.page == 'bulkPluginManager'} class="active"{/if}><span class="nav-icon">{$sp.icon}</span> {$sp.label}</a></li>
-                {/foreach}
-            </ul>
-        </div>
-    </nav>
-
-    <!-- Page Wrapper -->
-    <div class="page-wrapper">
-    <div class="main-content">
+{block name="page"}
+    <div class="bpm-app">
         <!-- Header -->
         <div class="header-bar">
             <div class="back-link">
@@ -102,15 +46,13 @@
             <div class="tabs-header" id="tabsHeader"></div>
             <div class="tabs-content-wrapper" id="tabsContent"></div>
         </div>
-    </div>
-    
-    <!-- Sticky Footer -->
-    <div class="footer">
-        <span data-i18n="poweredBy">Powered by</span> <a href="https://ojs-services.com/" target="_blank">OJS Services</a> ·
-        <span data-i18n="version">Version</span> 1.11.0 ·
-        OJS <span id="ojsVersion">-</span>
-    </div>
-    </div><!-- /page-wrapper -->
+
+        <!-- Footer / attribution -->
+        <div class="footer">
+            <span data-i18n="poweredBy">Powered by</span> <a href="https://ojs-services.com/" target="_blank">OJS Services</a> ·
+            <span data-i18n="version">Version</span> 1.11.1 ·
+            OJS <span id="ojsVersion">-</span>
+        </div>
 
     <!-- Progress Modal -->
     <div class="progress-overlay" id="progressOverlay">
@@ -133,7 +75,8 @@
             </div>
         </div>
     </div>
-    
+    </div><!-- /bpm-app -->
+
     <script>
     var i18n = {
         en: {
@@ -1850,5 +1793,4 @@
         }
     };
     </script>
-</body>
-</html>
+{/block}

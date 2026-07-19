@@ -14,6 +14,9 @@ class BulkPluginManagerHandler extends Handler
     public function __construct()
     {
         parent::__construct();
+        // Render inside OJS's standard backend layout (backend.tpl) so the real
+        // OJS navigation menu is used instead of a hand-built replica.
+        $this->_isBackendPage = true;
         // Site admins AND journal managers may use the tool. Letting a journal
         // manager (editor) manage plugins without needing a site-admin account is
         // the plugin's core purpose. Plugin FILES are inherently site-wide in OJS,
@@ -60,82 +63,28 @@ class BulkPluginManagerHandler extends Handler
 
     public function index($args, $request)
     {
+        // setupTemplate() triggers setupBackendPage() (via $_isBackendPage), which
+        // builds OJS's real navigation menu — no custom sidebar reconstruction needed.
         $this->setupTemplate($request);
         $templateMgr = TemplateManager::getManager($request);
 
-        // Pass context info for sidebar
-        $context = $request->getContext();
-        $templateMgr->assign('currentContext', $context);
-
-        // Sidebar: show links for all installed OJS Services plugins
-        // Priority order matches unified sidebar pattern: AUM=10, BPM=20, CertPro=30, SubmitAI=40, MailSettings=50
-        $sidebarPlugins = array();
-
-        $aumInfo = $this->getInstalledInfo('generic', 'advancedUserManager');
-        if ($aumInfo['filesExist']) {
-            $sidebarPlugins[] = array(
-                'page' => 'advancedUserManager',
-                'op' => '',
-                'label' => 'Advanced User Manager',
-                'icon' => '📊',
-                'priority' => 10
-            );
-        }
-
-        $certInfo = $this->getInstalledInfo('generic', 'reviewCertificatePro');
-        if ($certInfo['filesExist']) {
-            $sidebarPlugins[] = array(
-                'page' => 'certificatepro',
-                'op' => 'manageCertificates',
-                'label' => 'Certificates Pro',
-                'icon' => '📄',
-                'priority' => 30
-            );
-        }
-
-        $submitAiInfo = $this->getInstalledInfo('generic', 'submitai');
-        if ($submitAiInfo['filesExist']) {
-            $sidebarPlugins[] = array(
-                'page' => 'submitai-settings',
-                'op' => '',
-                'label' => 'SubmitAI',
-                'icon' => '🤖',
-                'priority' => 40
-            );
-        }
-
-        $mailInfo = $this->getInstalledInfo('generic', 'mailSettings');
-        if ($mailInfo['filesExist']) {
-            $sidebarPlugins[] = array(
-                'page' => 'mailSettings',
-                'op' => '',
-                'label' => 'Email Settings',
-                'icon' => '✉️',
-                'priority' => 50
-            );
-        }
-
-        // Add BPM itself to the sidebar list (always present since we are on BPM page)
-        $sidebarPlugins[] = array(
-            'page' => 'bulkPluginManager',
-            'op' => '',
-            'label' => 'Bulk Plugin Manager',
-            'icon' => '🔌',
-            'priority' => 20
-        );
-
-        // Sort by priority
-        usort($sidebarPlugins, function($a, $b) {
-            return ($a['priority'] ?? 99) - ($b['priority'] ?? 99);
-        });
-
-        $templateMgr->assign('sidebarPlugins', $sidebarPlugins);
-
         $plugin = PluginRegistry::getPlugin('generic', 'bulkpluginmanagerplugin');
 
-        // CSRF token for AJAX POST requests, and plugin base URL for the external stylesheet
-        $templateMgr->assign('csrfToken', $request->getSession()->getCSRFToken());
-        $templateMgr->assign('pluginStylePath', $request->getBaseUrl() . '/' . $plugin->getPluginPath() . '/css/bulkPluginManager.css');
+        // Load the stylesheet in the <head> (backend context) so it applies before
+        // first paint. Linking it from the page body caused a brief unstyled/narrow
+        // flash before the styles kicked in.
+        $templateMgr->addStyleSheet(
+            'bulkPluginManagerCss',
+            $request->getBaseUrl() . '/' . $plugin->getPluginPath() . '/css/bulkPluginManager.css',
+            array('contexts' => 'backend', 'priority' => STYLE_SEQUENCE_LAST)
+        );
+
+        $templateMgr->assign(array(
+            'pageTitle' => __('plugins.generic.bulkPluginManager.displayName'),
+            'pageWidth' => 'full',
+            // CSRF token for AJAX POST requests
+            'csrfToken' => $request->getSession()->getCSRFToken(),
+        ));
 
         return $templateMgr->display($plugin->getTemplateResource('index.tpl'));
     }

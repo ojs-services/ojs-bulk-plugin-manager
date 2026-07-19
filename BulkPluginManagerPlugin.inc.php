@@ -42,87 +42,55 @@ class BulkPluginManagerPlugin extends GenericPlugin {
     }
 
     /**
-     * Inject sidebar link into OJS backend navigation via JavaScript.
+     * Add a "Bulk Plugin Manager" entry to the OJS backend navigation menu.
+     *
+     * The entry is added to the Vue 'menu' state that setupBackendPage()
+     * builds for every backend handler, so it renders exactly like the
+     * core menu items (no icons, no custom styles, native active state).
      */
     public function addSidebarLink($hookName, $args) {
         $templateMgr = $args[0];
-        $template = $args[1];
 
-        $backendTemplates = array(
-            'management/', 'admin/', 'dashboard/', 'submissions',
-            'authorDashboard', 'workflow/', 'stats/', 'statistics/',
-            'tools/', 'settings/', 'users/', 'manageIssues/',
-            'editorialActivity', 'reports/', 'article'
-        );
-
-        $isBackend = false;
-        foreach ($backendTemplates as $tpl) {
-            if (strpos($template, $tpl) !== false) {
-                $isBackend = true;
-                break;
-            }
+        // Backend detection: the 'menu' state only exists on backend pages.
+        // The isset() guard keeps the hook idempotent across the multiple
+        // display calls of a single request.
+        $menu = $templateMgr->getState('menu');
+        if (!is_array($menu) || empty($menu) || isset($menu['bulkPluginManager'])) {
+            return false;
         }
 
         $request = Application::get()->getRequest();
+        $user = $request->getUser();
+        if (!$user) {
+            return false;
+        }
+
+        // Component (AJAX) requests use a router without page URLs
         $router = $request->getRouter();
-        if ($router && method_exists($router, 'getRequestedPage')) {
-            $page = $router->getRequestedPage($request);
-            $backendPages = array(
-                'management', 'manageIssues', 'stats', 'submissions',
-                'workflow', 'settings', 'tools', 'admin', 'user',
-                'bulkPluginManager', 'submitai-settings', 'mailSettings', 'certificatepro', 'advancedUserManager'
-            );
-            if (in_array($page, $backendPages)) {
-                $isBackend = true;
-            }
+        if (strpos(get_class($router), 'PageRouter') === false) {
+            return false;
         }
 
-        if ($isBackend) {
-            $dispatcher = $request->getDispatcher();
-            $url = $dispatcher->url($request, ROUTE_PAGE, null, 'bulkPluginManager');
-
-            $user = $request->getUser();
-            if ($user) {
-                $contextId = $request->getContext() ? $request->getContext()->getId() : CONTEXT_SITE;
-                $userRoles = $user->getRoles($contextId);
-                $isAdmin = false;
-                foreach ($userRoles as $role) {
-                    if (in_array($role->getRoleId(), array(ROLE_ID_SITE_ADMIN, ROLE_ID_MANAGER))) {
-                        $isAdmin = true;
-                        break;
-                    }
-                }
-
-                if ($isAdmin) {
-                    $templateMgr->addJavaScript(
-                        'bulkPluginManagerSidebar',
-                        '(function(){' .
-                        'var S=window.OJS_SIDEBAR_ITEMS=window.OJS_SIDEBAR_ITEMS||[];' .
-                        'S.push({id:"bpmNavLink",icon:"\uD83D\uDD0C",text:"Bulk Plugin Manager",url:' . json_encode($url) . ',pg:"bulkPluginManager",p:20});' .
-                        'if(!window._ojsSbRender){window._ojsSbRender=function(){' .
-                        'var items=window.OJS_SIDEBAR_ITEMS;if(!items||!items.length)return;' .
-                        'var nav=document.querySelector(".pkp_nav_list,.app__nav,nav[role=navigation] ul,.pkpNav__list");' .
-                        'if(!nav)nav=document.querySelector("#navigationPrimary ul,.pkp_navigation_primary ul");' .
-                        'if(!nav){if(!window._ojsSbR)window._ojsSbR=0;if(window._ojsSbR++<30)setTimeout(window._ojsSbRender,200);return;}' .
-                        'window._ojsSbR=0;if(nav.tagName==="NAV"){var ul=nav.querySelector("ul");if(ul)nav=ul;}' .
-                        'var old=nav.querySelectorAll("[data-ojs-sidebar]");for(var i=0;i<old.length;i++)old[i].parentNode.removeChild(old[i]);' .
-                        'items.sort(function(a,b){return(a.p||99)-(b.p||99);});' .
-                        'var sep=document.createElement("li");sep.setAttribute("data-ojs-sidebar","1");' .
-                        'sep.style.cssText="border-top:1px solid rgba(255,255,255,0.15);margin:12px 0 6px;padding:0;list-style:none;";nav.appendChild(sep);' .
-                        'var u=window.location.href;items.forEach(function(it){' .
-                        'var li=document.createElement("li");li.id=it.id;li.setAttribute("data-ojs-sidebar","1");' .
-                        'var a=document.createElement("a");a.className="app__navItem";a.href=it.url;a.innerHTML=it.icon+" "+it.text;' .
-                        'a.style.cssText="display:flex;align-items:center;gap:8px;padding:8px 16px;color:inherit;text-decoration:none;font-size:0.9em;font-weight:600;";' .
-                        'if(u.indexOf(it.pg)>-1){a.classList.add("app__navItem--isCurrent");a.style.opacity="1";}' .
-                        'li.appendChild(a);nav.appendChild(li);});};}' .
-                        'clearTimeout(window._ojsSbT);window._ojsSbT=setTimeout(window._ojsSbRender,100);' .
-                        'if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",function(){clearTimeout(window._ojsSbT);window._ojsSbT=setTimeout(window._ojsSbRender,100);});}' .
-                        '})();',
-                        array('inline' => true, 'contexts' => array('backend'))
-                    );
-                }
+        $contextId = $request->getContext() ? $request->getContext()->getId() : CONTEXT_SITE;
+        $userRoles = $user->getRoles($contextId);
+        $isAdmin = false;
+        foreach ($userRoles as $role) {
+            if (in_array($role->getRoleId(), array(ROLE_ID_SITE_ADMIN, ROLE_ID_MANAGER))) {
+                $isAdmin = true;
+                break;
             }
         }
+        if (!$isAdmin) {
+            return false;
+        }
+
+        $dispatcher = $request->getDispatcher();
+        $menu['bulkPluginManager'] = array(
+            'name' => __('plugins.generic.bulkPluginManager.displayName'),
+            'url' => $dispatcher->url($request, ROUTE_PAGE, null, 'bulkPluginManager'),
+            'isCurrent' => ($router->getRequestedPage($request) === 'bulkPluginManager'),
+        );
+        $templateMgr->setState(array('menu' => $menu));
 
         return false;
     }
