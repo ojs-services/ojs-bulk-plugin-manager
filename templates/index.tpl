@@ -50,7 +50,7 @@
         <!-- Footer / attribution -->
         <div class="footer">
             <span data-i18n="poweredBy">Powered by</span> <a href="https://ojs-services.com/" target="_blank">OJS Services</a> ·
-            <span data-i18n="version">Version</span> 1.11.1 ·
+            <span data-i18n="version">Version</span> 1.11.2 ·
             OJS <span id="ojsVersion">-</span>
         </div>
 
@@ -99,7 +99,7 @@
             bulkFixDb: 'Fix DB (selected)',
             bulkReinstall: 'Reinstall selected',
             bulkCleanDb: 'Clean DB (selected)',
-            confirmBulkClean: 'plugin(s) will have their database records PERMANENTLY deleted (settings included). This does not touch files. Continue?',
+            confirmBulkClean: 'plugin(s): orphaned database records will be removed. A restorable .sql backup is saved first, and any plugin whose files are still present is automatically skipped (its data is never touched). Continue?',
             bulkNoReinstallable: 'None of the selected plugins are in the PKP Gallery, so they cannot be reinstalled. Use "Clean DB" to remove orphaned records.',
             loading: 'Loading plugins...',
             selectAll: 'Select all',
@@ -156,7 +156,7 @@
             installed: 'Installed',
             cleaning: 'Cleaning...',
             cleaned: 'Cleaned',
-            confirmCleanDb: 'Are you sure you want to remove this plugin from database? This will delete all plugin settings.',
+            confirmCleanDb: 'Remove this plugin\'s orphaned database records? Only works if the plugin\'s files are truly gone — installed plugins are protected. A restorable .sql backup is saved first.',
             dbFixInfo: '⚠️ These plugins have DB version higher than Gallery. Click Fix to sync DB with file version.',
             thAction: 'Action',
             installing: 'Installing',
@@ -198,7 +198,7 @@
             infoFilterMissing: 'Shows plugins that have database records but no files on server. Need reinstall or cleanup.',
             infoButtonsTitle: 'Action Buttons',
             infoButtonFix: 'Updates the database version to match the file version. Use when DB and File versions are different. This fixes "current=0" issues and OJS plugin page crashes.',
-            infoButtonClean: 'Deletes all database records for the plugin (versions + plugin_settings). Use for ORPHANED plugins (files gone, not in Gallery). This does not touch any files. Available in bulk on the "Not in Gallery" tab and on the Installed tab\'s "Missing Files" filter.',
+            infoButtonClean: 'Removes the orphaned database records (versions + plugin_settings) of a plugin whose files are truly gone. As a safeguard it re-checks the filesystem on the server and REFUSES if the plugin\'s files are still present or the directory cannot be read — so an installed plugin is never deleted (which would make OJS reinstall it and wipe its own data). A restorable .sql backup is written before deletion. Available in bulk on the "Not in Gallery" tab and the Installed tab\'s "Missing Files" filter.',
             infoButtonInstall: 'Downloads the plugin from the PKP Gallery and installs it. Use for RECOVERABLE missing files or new plugins. Available in bulk on the "Missing" tab.',
             infoButtonUpdate: 'Downloads the latest version from Gallery and updates the plugin. Replaces existing files.',
             infoStatusTitle: 'Status Indicators',
@@ -313,7 +313,7 @@
             bulkFixDb: 'Seçilenleri DB Düzelt',
             bulkReinstall: 'Seçilenleri Yeniden Kur',
             bulkCleanDb: 'Seçilenleri DB’den Temizle',
-            confirmBulkClean: 'eklentinin veritabanı kaydı KALICI olarak silinecek (ayarlar dahil). Dosyalara dokunulmaz. Devam edilsin mi?',
+            confirmBulkClean: 'eklentinin yetim veritabanı kayıtları temizlenecek. Önce geri yüklenebilir bir .sql yedeği alınır ve dosyaları hâlâ duran eklentiler otomatik atlanır (verilerine dokunulmaz). Devam edilsin mi?',
             bulkNoReinstallable: 'Seçilen eklentilerin hiçbiri PKP Gallery’de yok, bu yüzden yeniden kurulamaz. Yetim kayıtları kaldırmak için "DB Temizle" kullanın.',
             loading: 'Eklentiler yükleniyor...',
             selectAll: 'Tümünü seç',
@@ -370,7 +370,7 @@
             installed: 'Yüklendi',
             cleaning: 'Temizleniyor...',
             cleaned: 'Temizlendi',
-            confirmCleanDb: 'Bu eklentiyi veritabanından silmek istediğinize emin misiniz? Tüm eklenti ayarları silinecek.',
+            confirmCleanDb: 'Bu eklentinin yetim veritabanı kayıtları silinsin mi? Yalnızca eklenti dosyaları gerçekten yoksa çalışır — kurulu eklentiler korunur. Önce geri yüklenebilir bir .sql yedeği alınır.',
             dbFixInfo: '⚠️ Bu eklentilerin DB versiyonu Gallery versiyonundan büyük. Düzelt\'e tıklayarak DB\'yi dosya versiyonuyla eşleştirin.',
             thAction: 'İşlem',
             installing: 'Yükleniyor',
@@ -412,7 +412,7 @@
             infoFilterMissing: 'Veritabanı kaydı olan ama sunucuda dosyası olmayan eklentileri gösterir. Yeniden kurulum veya temizlik gerekir.',
             infoButtonsTitle: 'İşlem Butonları',
             infoButtonFix: 'Veritabanı versiyonunu dosya versiyonuyla eşitler. DB ve Dosya versiyonları farklı olduğunda kullanın. "current=0" sorunlarını ve OJS eklenti sayfası çökmelerini düzeltir.',
-            infoButtonClean: 'Eklentinin tüm veritabanı kayıtlarını siler (versions + plugin_settings). YETİM eklentiler için kullanın (dosya yok, galeride yok). Dosyalara dokunmaz. "Gallery\'de Yok" sekmesinde ve Installed sekmesinin "Eksik Dosya" filtresinde toplu olarak yapılabilir.',
+            infoButtonClean: 'Dosyaları gerçekten silinmiş bir eklentinin yetim veritabanı kayıtlarını (versions + plugin_settings) temizler. Güvenlik için sunucuda dosya sistemini yeniden kontrol eder; eklenti dosyaları hâlâ duruyorsa veya dizin okunamıyorsa işlemi REDDEDER — böylece kurulu bir eklenti asla silinmez (silinseydi OJS onu yeniden kurup kendi verisini sıfırlardı). Silmeden önce geri yüklenebilir bir .sql yedeği yazılır. "Gallery\'de Yok" sekmesinde ve Installed sekmesinin "Eksik Dosya" filtresinde toplu yapılabilir.',
             infoButtonInstall: 'Eklentiyi PKP Gallery\'den indirir ve kurar. KURTARILABİLİR eksik dosyalar veya yeni eklentiler için kullanın. "Missing" sekmesinde toplu olarak yapılabilir.',
             infoButtonUpdate: 'Gallery\'den en son versiyonu indirir ve eklentiyi günceller. Mevcut dosyaların üzerine yazar.',
             infoStatusTitle: 'Durum Göstergeleri',

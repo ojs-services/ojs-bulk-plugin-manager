@@ -270,6 +270,108 @@ class BulkPluginManagerHandler extends Handler
     }
 
     /**
+     * Probe a plugin's files with a THREE-state result, so a destructive DB
+     * clean can never be triggered by a filesystem read failure.
+     *
+     *   readable + present  => ['status'=>'readable','exists'=>true,'path'=>...]
+     *   readable + absent   => ['status'=>'readable','exists'=>false,'path'=>null]
+     *   unreadable/unknown  => ['status'=>'unreadable','reason'=>...]
+     *
+     * Unlike getInstalledInfo() (which suppresses errors and treats any failure
+     * as "no files"), this never swallows read errors — a permissions/IO failure
+     * must surface as 'unreadable', not be mistaken for "the plugin is gone".
+     */
+    private function probePluginFiles($category, $product)
+    {
+        $categoryDir = Core::getBaseDir() . '/plugins/' . $category;
+
+        if (!is_dir($categoryDir)) {
+            return array('status' => 'unreadable', 'reason' => 'category directory missing or inaccessible: ' . $category);
+        }
+        if (!is_readable($categoryDir)) {
+            return array('status' => 'unreadable', 'reason' => 'category directory not readable (permissions): ' . $category);
+        }
+
+        $dirs = scandir($categoryDir); // no '@' — a read failure must surface, not be swallowed
+        if ($dirs === false) {
+            return array('status' => 'unreadable', 'reason' => 'scandir failed on plugins/' . $category);
+        }
+
+        foreach ($dirs as $dir) {
+            if (strtolower($dir) === strtolower($product)) {
+                $path = $categoryDir . '/' . $dir;
+                if (!is_readable($path)) {
+                    // The directory exists but we cannot read it — do NOT report "absent".
+                    return array('status' => 'unreadable', 'reason' => 'plugin directory not readable (permissions): ' . $product);
+                }
+                $entries = scandir($path);
+                $hasFiles = file_exists($path . '/version.xml')
+                    || file_exists($path . '/index.php')
+                    || ($entries !== false && count(array_diff($entries, array('.', '..'))) > 0);
+                return array('status' => 'readable', 'exists' => $hasFiles, 'path' => $path);
+            }
+        }
+
+        // Directory listing succeeded and the plugin folder is genuinely not there.
+        return array('status' => 'readable', 'exists' => false, 'path' => null);
+    }
+
+    /**
+     * Dump the versions + plugin_settings rows for a plugin to a restorable .sql
+     * file before a DB clean, so a mistaken removal can be reverted by hand.
+     * @return string absolute path of the backup file
+     */
+    private function backupPluginDbRows($category, $product, $pluginName)
+    {
+        $versionDao = DAORegistry::getDAO('VersionDAO');
+        $lines = array(
+            '-- Bulk Plugin Manager DB backup',
+            '-- product: plugins.' . $category . ' / ' . $product,
+            '-- plugin_name: ' . $pluginName,
+            '',
+        );
+
+        $vres = $versionDao->retrieve(
+            "SELECT * FROM versions WHERE LOWER(product_type) = LOWER(?) AND LOWER(product) = LOWER(?)",
+            array('plugins.' . $category, $product)
+        );
+        foreach ($vres as $row) {
+            $lines[] = $this->buildInsertStatement('versions', (array) $row);
+        }
+
+        $sres = $versionDao->retrieve(
+            "SELECT * FROM plugin_settings WHERE LOWER(plugin_name) = LOWER(?)",
+            array($pluginName)
+        );
+        foreach ($sres as $row) {
+            $lines[] = $this->buildInsertStatement('plugin_settings', (array) $row);
+        }
+
+        $safeProduct = preg_replace('/[^a-zA-Z0-9_]/', '_', $product);
+        $file = $this->getBackupDir() . '/db_' . $safeProduct . '_' . date('YmdHis') . '.sql';
+        file_put_contents($file, implode("\n", $lines) . "\n");
+        return $file;
+    }
+
+    /**
+     * Build a single INSERT statement from an associative row (values escaped).
+     */
+    private function buildInsertStatement($table, $row)
+    {
+        $cols = array();
+        $vals = array();
+        foreach ($row as $col => $value) {
+            $cols[] = '`' . $col . '`';
+            if ($value === null) {
+                $vals[] = 'NULL';
+            } else {
+                $vals[] = "'" . str_replace(array('\\', "'"), array('\\\\', "\\'"), (string) $value) . "'";
+            }
+        }
+        return 'INSERT INTO `' . $table . '` (' . implode(', ', $cols) . ') VALUES (' . implode(', ', $vals) . ');';
+    }
+
+    /**
      * Fetch all plugins and categorize them
      */
     private function fetchAllPlugins($forceRefresh = false)
@@ -834,22 +936,44 @@ class BulkPluginManagerHandler extends Handler
                 return;
             }
 
-            // Handle DB clean action - remove DB entries for missing plugins
+            // Handle DB clean action - remove DB entries for genuinely orphaned plugins.
             if ($action === 'cleandb') {
+                // Destructive-op precondition: NEVER delete DB records unless we can
+                // prove the plugin's files are truly gone. A filesystem read failure
+                // (permissions, open_basedir, I/O) must not be mistaken for "removed".
+                // Deleting the versions row of a plugin whose files are still present
+                // makes OJS re-run its install schema, which wipes the plugin's OWN
+                // tables (e.g. a slider plugin's slides) — that is real data loss.
+                $probe = $this->probePluginFiles($category, $product);
+                if ($probe['status'] !== 'readable') {
+                    throw new Exception(
+                        'Filesystem could not be verified (' . $probe['reason'] . '). '
+                        . 'No records were removed. Check the plugin directory permissions and try again.'
+                    );
+                }
+                if (!empty($probe['exists'])) {
+                    throw new Exception(
+                        'Plugin files are still present. Refusing to delete the database records of an '
+                        . 'installed plugin — this could make OJS reinstall it and wipe its own data.'
+                    );
+                }
+
                 $versionDao = DAORegistry::getDAO('VersionDAO');
+                $pluginName = strtolower($product . 'plugin');
+
+                // Save a restorable backup of the affected rows before deleting anything.
+                $backupFile = $this->backupPluginDbRows($category, $product, $pluginName);
 
                 $versionDao->update(
                     "DELETE FROM versions WHERE LOWER(product_type) = LOWER(?) AND LOWER(product) = LOWER(?)",
                     array('plugins.' . $category, $product)
                 );
-
-                $pluginName = strtolower($product . 'plugin');
                 $versionDao->update(
                     "DELETE FROM plugin_settings WHERE LOWER(plugin_name) = LOWER(?)",
                     array($pluginName)
                 );
 
-                $this->jsonResponse('success', 'DB records cleaned', $product);
+                $this->jsonResponse('success', 'Orphaned DB records removed (backup: ' . basename($backupFile) . ')', $product);
                 return;
             }
 
