@@ -283,10 +283,19 @@ class BulkPluginManagerHandler extends Handler
      */
     private function probePluginFiles($category, $product)
     {
-        $categoryDir = Core::getBaseDir() . '/plugins/' . $category;
+        // The plugins/ root must be readable for any conclusion to be trustworthy.
+        $pluginsRoot = Core::getBaseDir() . '/plugins';
+        if (!is_dir($pluginsRoot) || !is_readable($pluginsRoot)) {
+            return array('status' => 'unreadable', 'reason' => 'plugins directory not readable');
+        }
+
+        $categoryDir = $pluginsRoot . '/' . $category;
 
         if (!is_dir($categoryDir)) {
-            return array('status' => 'unreadable', 'reason' => 'category directory missing or inaccessible: ' . $category);
+            // The category folder does not exist under a readable plugins/ root, so
+            // the plugin — often its whole legacy OJS 2 category (citationLookup,
+            // citationOutput, metadata…) — is genuinely gone. Safe to clean.
+            return array('status' => 'readable', 'exists' => false, 'path' => null);
         }
         if (!is_readable($categoryDir)) {
             return array('status' => 'unreadable', 'reason' => 'category directory not readable (permissions): ' . $category);
@@ -841,12 +850,20 @@ class BulkPluginManagerHandler extends Handler
             $this->jsonResponse('error', 'Missing parameters');
         }
 
-        // Security: Path Traversal Check
-        if (!in_array($category, self::ALLOWED_CATEGORIES)) {
+        // Security: category and product must be safe path segments (no traversal).
+        if (preg_match('/[^a-zA-Z0-9_]/', $category)) {
             $this->jsonResponse('error', 'Invalid category: ' . $category);
         }
         if (preg_match('/[^a-zA-Z0-9_]/', $product)) {
             $this->jsonResponse('error', 'Invalid product name');
+        }
+        // Actions that download and write plugin files must target a known OJS 3
+        // category. DB-only actions (dbfix / cleandb / sync_only) may operate on
+        // legacy categories (e.g. citationLookup / citationOutput left over from an
+        // OJS 2 upgrade) whose orphaned rows still linger in the versions table.
+        $fileDownloadActions = array('install', 'update', 'missing', 'sync_update');
+        if (in_array($action, $fileDownloadActions) && !in_array($category, self::ALLOWED_CATEGORIES)) {
+            $this->jsonResponse('error', 'Invalid category: ' . $category);
         }
 
         try {
