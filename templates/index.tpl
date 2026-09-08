@@ -50,7 +50,7 @@
         <!-- Footer / attribution -->
         <div class="footer">
             <span data-i18n="poweredBy">Powered by</span> <a href="https://ojs-services.com/" target="_blank">OJS Services</a> ·
-            <span data-i18n="version">Version</span> 1.11.3 ·
+            <span data-i18n="version">Version</span> 1.11.5 ·
             OJS <span id="ojsVersion">-</span>
         </div>
 

@@ -1,6 +1,6 @@
 # Bulk Plugin Manager for OJS
 
-![Version](https://img.shields.io/badge/version-1.11.3-blue)
+![Version](https://img.shields.io/badge/version-1.11.5-blue)
 ![OJS](https://img.shields.io/badge/OJS-3.3.x-green)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange)
 

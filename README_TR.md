@@ -1,6 +1,6 @@
 # OJS Toplu Eklenti Yöneticisi
 
-![Version](https://img.shields.io/badge/versiyon-1.11.3-blue)
+![Version](https://img.shields.io/badge/versiyon-1.11.5-blue)
 ![OJS](https://img.shields.io/badge/OJS-3.3.x-green)
 ![License](https://img.shields.io/badge/lisans-GPL--3.0-orange)
 

@@ -190,6 +190,53 @@ class BulkPluginManagerHandler extends Handler
     }
 
     /**
+     * Pick the newest PKP Gallery release compatible with the running OJS.
+     *
+     * plugins.xml structure (compatibility is declared as CHILD <version>
+     * elements — there is no version attribute, and <release> has no
+     * application attribute):
+     *
+     *   <release version="1.2.0.0" ...>
+     *     <compatibility application="ojs2">
+     *       <version>3.3.0.0</version> ...
+     *     </compatibility>
+     *   </release>
+     *
+     * Single source of truth for all three gallery lookups.
+     * @return SimpleXMLElement|null the chosen <release>, or null if none match
+     */
+    private function pickCompatibleGalleryRelease($plugin)
+    {
+        $best = null;
+        $bestVersion = '0.0.0.0';
+
+        foreach ($plugin->release as $release) {
+            $compatible = false;
+            foreach ($release->compatibility as $compat) {
+                if ((string) $compat['application'] !== 'ojs2') {
+                    continue;
+                }
+                foreach ($compat->version as $ver) {
+                    if ($this->isVersionCompatible((string) $ver)) {
+                        $compatible = true;
+                        break 2;
+                    }
+                }
+            }
+            if (!$compatible) {
+                continue;
+            }
+            $relVer = (string) $release['version'];
+            if (version_compare($relVer, $bestVersion, '>')) {
+                $bestVersion = $relVer;
+                $best = $release;
+            }
+        }
+
+        return $best;
+    }
+
+    /**
      * Normalize version string to 4 parts (e.g., 0.7.8 -> 0.7.8.0)
      */
     private function normalizeVersion($version)
@@ -444,22 +491,8 @@ class BulkPluginManagerHandler extends Handler
             $category = (string) $plugin['category'];
             $key = strtolower($category . '/' . $product);
 
-            // Find latest compatible release
-            $latestRelease = null;
-            $latestVersion = '0.0.0.0';
-            foreach ($plugin->release as $release) {
-                if (isset($release['application']) && (string) $release['application'] === 'ojs2') {
-                    foreach ($release->compatibility as $compat) {
-                        if ($this->isVersionCompatible((string) $compat['version'])) {
-                            $relVer = (string) $release['version'];
-                            if (version_compare($relVer, $latestVersion, '>')) {
-                                $latestVersion = $relVer;
-                                $latestRelease = $release;
-                            }
-                        }
-                    }
-                }
-            }
+            // Find latest compatible release (shared helper — see pickCompatibleGalleryRelease)
+            $latestRelease = $this->pickCompatibleGalleryRelease($plugin);
 
             if ($latestRelease) {
                 $galleryProducts[$key] = array(
@@ -478,26 +511,8 @@ class BulkPluginManagerHandler extends Handler
             $product = (string) $plugin['product'];
             $category = (string) $plugin['category'];
 
-            // Find latest compatible release
-            $latestRelease = null;
-            $latestVersion = '0.0.0.0';
-
-            foreach ($plugin->release as $release) {
-                foreach ($release->compatibility as $compat) {
-                    if ((string) $compat['application'] === 'ojs2') {
-                        foreach ($compat->version as $ver) {
-                            if ($this->isVersionCompatible((string) $ver)) {
-                                $relVer = (string) $release['version'];
-                                if (version_compare($relVer, $latestVersion, '>')) {
-                                    $latestVersion = $relVer;
-                                    $latestRelease = $release;
-                                }
-                                break 2;
-                            }
-                        }
-                    }
-                }
-            }
+            // Find latest compatible release (shared helper)
+            $latestRelease = $this->pickCompatibleGalleryRelease($plugin);
 
             if (!$latestRelease)
                 continue;
@@ -1236,6 +1251,25 @@ class BulkPluginManagerHandler extends Handler
                 throw new Exception('version.xml not found in plugin');
             }
 
+            // Verify the archive really contains the requested plugin and targets the
+            // running OJS series — BEFORE the existing installation is touched, so a
+            // wrong or incompatible package can never replace a working plugin.
+            $manifest = $this->parseVersionXml(@file_get_contents($pluginSourceDir . '/version.xml'));
+            if (!$manifest || !isset($manifest->application)) {
+                throw new Exception('version.xml in the archive is invalid');
+            }
+            $archiveProduct = (string) $manifest->application;
+            if (strtolower($archiveProduct) !== strtolower($product)) {
+                throw new Exception('Archive contains plugin "' . $archiveProduct . '" but "' . $product . '" was requested');
+            }
+            if ($this->xmlCompatibility($manifest) === false) {
+                import('lib.pkp.classes.site.VersionCheck');
+                throw new Exception(
+                    'Package targets a different OJS version (this site runs '
+                    . VersionCheck::getCurrentCodeVersion()->getVersionString() . ')'
+                );
+            }
+
             // Target directory
             $pluginDestDir = Core::getBaseDir() . '/plugins/' . $category . '/' . $product;
 
@@ -1466,26 +1500,8 @@ class BulkPluginManagerHandler extends Handler
                 continue;
             }
 
-            // Find best compatible release
-            $bestRelease = null;
-            $bestVersion = '0.0.0.0';
-
-            foreach ($plugin->release as $release) {
-                foreach ($release->compatibility as $compat) {
-                    if ((string) $compat['application'] === 'ojs2') {
-                        foreach ($compat->version as $ver) {
-                            if ($this->isVersionCompatible((string) $ver)) {
-                                $relVer = (string) $release['version'];
-                                if (version_compare($relVer, $bestVersion, '>')) {
-                                    $bestVersion = $relVer;
-                                    $bestRelease = $release;
-                                }
-                                break 2;
-                            }
-                        }
-                    }
-                }
-            }
+            // Find best compatible release (shared helper)
+            $bestRelease = $this->pickCompatibleGalleryRelease($plugin);
 
             if ($bestRelease) {
                 return array(
@@ -1551,6 +1567,12 @@ class BulkPluginManagerHandler extends Handler
      * GitHub API cache duration (1 hour)
      */
     const GITHUB_CACHE_DURATION = 3600;
+
+    /**
+     * How many recent releases to scan when looking for one that is compatible
+     * with the running OJS version (repos may ship parallel OJS 3.3 / 3.5 lines).
+     */
+    const OJS_SERVICES_MAX_RELEASES = 10;
 
     /**
      * Fetch list of repos from ojs-services GitHub organization (cached)
@@ -1657,12 +1679,170 @@ class BulkPluginManagerHandler extends Handler
     }
 
     /**
+     * Fetch a repo's recent releases (newest first), cached.
+     */
+    private function fetchRepoReleases($repo, $forceRefresh = false)
+    {
+        $safeName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $repo);
+        $cacheFile = sys_get_temp_dir() . '/ojs_services_' . $safeName . '_releases.json';
+
+        if (!$forceRefresh && file_exists($cacheFile) && (time() - filemtime($cacheFile) < self::GITHUB_CACHE_DURATION)) {
+            $cached = json_decode(@file_get_contents($cacheFile), true);
+            if (is_array($cached)) {
+                return $cached;
+            }
+        }
+
+        $headers = array('Accept' => 'application/vnd.github.v3+json', 'User-Agent' => 'OJS-BulkPluginManager');
+        $token = $this->getGithubToken();
+        if ($token) {
+            $headers['Authorization'] = 'token ' . $token;
+        }
+
+        try {
+            $client = Application::get()->getHttpClient();
+            $response = $client->request(
+                'GET',
+                'https://api.github.com/repos/ojs-services/' . $repo . '/releases?per_page=' . self::OJS_SERVICES_MAX_RELEASES,
+                array('timeout' => 15, 'connect_timeout' => 10, 'headers' => $headers)
+            );
+            $releases = json_decode((string) $response->getBody(), true);
+            if (!is_array($releases)) {
+                $releases = array();
+            }
+            file_put_contents($cacheFile, json_encode($releases));
+            return $releases;
+        } catch (Exception $e) {
+            error_log('BulkPluginManager: releases fetch failed for ' . $repo . ': ' . $e->getMessage());
+            if (file_exists($cacheFile)) {
+                $cached = json_decode(@file_get_contents($cacheFile), true);
+                if (is_array($cached)) {
+                    return $cached;
+                }
+            }
+            return array();
+        }
+    }
+
+    /**
+     * Fetch a repo's version.xml at a given git ref (branch or tag), cached.
+     * @return string raw XML, or '' when unavailable
+     */
+    private function fetchVersionXmlAtRef($repo, $ref, $forceRefresh = false)
+    {
+        if (!preg_match('#^[A-Za-z0-9._/-]+$#', (string) $ref)) {
+            return '';
+        }
+
+        $safeName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $repo . '__' . $ref);
+        $cacheFile = sys_get_temp_dir() . '/ojs_services_' . $safeName . '_version.xml';
+
+        if (!$forceRefresh && file_exists($cacheFile) && (time() - filemtime($cacheFile) < self::GITHUB_CACHE_DURATION)) {
+            $cached = @file_get_contents($cacheFile);
+            if ($cached !== false) {
+                return $cached;
+            }
+        }
+
+        try {
+            $client = Application::get()->getHttpClient();
+            $response = $client->request(
+                'GET',
+                'https://raw.githubusercontent.com/ojs-services/' . $repo . '/' . $ref . '/version.xml',
+                array('timeout' => 15, 'connect_timeout' => 10)
+            );
+            $content = (string) $response->getBody();
+            file_put_contents($cacheFile, $content);
+            return $content;
+        } catch (Exception $e) {
+            // Missing version.xml at this ref is normal (not a plugin / older layout)
+            if (file_exists($cacheFile)) {
+                $cached = @file_get_contents($cacheFile);
+                if ($cached !== false) {
+                    return $cached;
+                }
+            }
+            return '';
+        }
+    }
+
+    /**
+     * Parse a version.xml string safely, stripping the DOCTYPE first.
+     * @return SimpleXMLElement|false
+     */
+    private function parseVersionXml($xmlContent)
+    {
+        if (!$xmlContent) {
+            return false;
+        }
+        return $this->parseXmlSafe(preg_replace('/<!DOCTYPE[^>]*>/', '', $xmlContent));
+    }
+
+    /**
+     * Does this version.xml declare compatibility with the running OJS version?
+     * @return bool|null true = compatible, false = declares another OJS series,
+     *                   null = no <compatibility> block at all (caller decides)
+     */
+    private function xmlCompatibility($vxml)
+    {
+        if (!isset($vxml->compatibility)) {
+            return null;
+        }
+        foreach ($vxml->compatibility as $compat) {
+            $app = (string) $compat['application'];
+            if ($app === 'ojs2' || $app === 'ojs') {
+                foreach ($compat->version as $ver) {
+                    if ($this->isVersionCompatible((string) $ver)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Pick the newest release whose version.xml is compatible with the running OJS.
+     *
+     * A repo can ship parallel lines (e.g. an OJS 3.3 release and an OJS 3.5 port).
+     * GitHub's /releases/latest returns the newest by date regardless of which OJS
+     * series it targets, which would offer — and install — the wrong package.
+     *
+     * @return array|null array('release' => <github release>, 'vxml' => SimpleXMLElement)
+     */
+    private function selectCompatibleRelease($repo, $forceRefresh = false)
+    {
+        $releases = $this->fetchRepoReleases($repo, $forceRefresh);
+        foreach ($releases as $release) {
+            if (!empty($release['draft'])) {
+                continue;
+            }
+            $tag = isset($release['tag_name']) ? (string) $release['tag_name'] : '';
+            if ($tag === '') {
+                continue;
+            }
+
+            $vxml = $this->parseVersionXml($this->fetchVersionXmlAtRef($repo, $tag, $forceRefresh));
+            if (!$vxml || !isset($vxml->application)) {
+                continue;
+            }
+
+            $compat = $this->xmlCompatibility($vxml);
+            // null = no compatibility block declared: keep the historical
+            // "assume compatible" fallback so single-line repos still work.
+            if ($compat === true || $compat === null) {
+                return array('release' => $release, 'vxml' => $vxml);
+            }
+        }
+        return null;
+    }
+
+    /**
      * Fetch OJS Services plugins with version info (dynamic GitHub discovery)
      */
     private function fetchOjsServicesPlugins($forceRefresh = false)
     {
         $plugins = array();
-        $client = Application::get()->getHttpClient();
 
         import('lib.pkp.classes.site.VersionCheck');
         $currentVersion = VersionCheck::getCurrentCodeVersion();
@@ -1691,52 +1871,28 @@ class BulkPluginManagerHandler extends Handler
                 continue;
             }
 
-            // Cache key uses sanitized repo name
-            $safeName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $repo);
-
-            // Get version.xml from GitHub (with caching)
-            $cacheFile = sys_get_temp_dir() . '/ojs_services_' . $safeName . '_version.xml';
-            $versionXmlContent = '';
-
-            if (!$forceRefresh && file_exists($cacheFile) && (time() - filemtime($cacheFile) < self::GITHUB_CACHE_DURATION)) {
-                $versionXmlContent = file_get_contents($cacheFile);
-            } else {
-                $rawUrl = 'https://raw.githubusercontent.com/ojs-services/' . $repo . '/' . $branch . '/version.xml';
-                try {
-                    $response = $client->request('GET', $rawUrl, ['timeout' => 15, 'connect_timeout' => 10]);
-                    $versionXmlContent = (string)$response->getBody();
-                    file_put_contents($cacheFile, $versionXmlContent);
-                } catch (Exception $e) {
-                    // version.xml not found = not an OJS plugin, skip silently
-                    if (file_exists($cacheFile)) {
-                        $versionXmlContent = file_get_contents($cacheFile);
-                    } else {
-                        continue; // Skip this repo entirely
-                    }
-                }
-            }
-
-            if (!$versionXmlContent) {
-                continue; // Not a plugin repo
-            }
-
-            // Parse version.xml
-            $cleanXml = preg_replace('/<!DOCTYPE[^>]*>/', '', $versionXmlContent);
-            $vxml = $this->parseXmlSafe($cleanXml);
+            // Base manifest from the default branch — identifies the repo as a plugin.
+            $vxml = $this->parseVersionXml($this->fetchVersionXmlAtRef($repo, $branch, $forceRefresh));
             if (!$vxml || !isset($vxml->application)) {
-                continue; // Invalid version.xml, skip
+                continue; // Not a plugin repo / invalid version.xml
             }
 
-            // Extract product name from version.xml
-            $product = (string)$vxml->application;
+            // Prefer the newest RELEASE that targets the running OJS series. A repo may
+            // ship parallel lines (e.g. an OJS 3.3 release and an OJS 3.5 port); using
+            // the default branch or /releases/latest would offer the wrong package.
+            $selected = $this->selectCompatibleRelease($repo, $forceRefresh);
+            $manifest = $selected ? $selected['vxml'] : $vxml;
+
+            // Extract product name from the manifest we will actually offer
+            $product = (string)$manifest->application;
 
             // Skip bulkPluginManager itself (safety check)
             if ($product === 'bulkPluginManager') continue;
 
             // Extract category from <type> (e.g., "plugins.generic" → "generic")
             $category = 'generic';
-            if (isset($vxml->type)) {
-                $typeParts = explode('.', (string)$vxml->type);
+            if (isset($manifest->type)) {
+                $typeParts = explode('.', (string)$manifest->type);
                 if (count($typeParts) >= 2) {
                     $category = $typeParts[1];
                 }
@@ -1761,54 +1917,22 @@ class BulkPluginManagerHandler extends Handler
                 'repoUrl' => 'https://github.com/ojs-services/' . $repo
             );
 
-            // Parse version and compatibility from version.xml
-            $pluginData['repoVersion'] = isset($vxml->release) ? (string)$vxml->release : null;
+            // Version + compatibility come from the manifest we will actually offer.
+            $pluginData['repoVersion'] = isset($manifest->release) ? (string)$manifest->release : null;
 
-            if (isset($vxml->compatibility)) {
-                foreach ($vxml->compatibility as $compat) {
-                    $app = (string)$compat['application'];
-                    if ($app === 'ojs2' || $app === 'ojs') {
-                        foreach ($compat->version as $ver) {
-                            if ($this->isVersionCompatible((string)$ver)) {
-                                $pluginData['compatible'] = true;
-                                break 2;
-                            }
-                        }
-                    }
-                }
-            } else {
-                // OJS Services plugins without compatibility block
-                // are assumed compatible (all built for OJS 3.3.x)
+            if ($selected) {
+                // selectCompatibleRelease() only returns compatible releases.
                 $pluginData['compatible'] = true;
-            }
-
-            // Get latest release download URL (with caching)
-            $releaseCacheFile = sys_get_temp_dir() . '/ojs_services_' . $safeName . '_release.json';
-            $releaseData = null;
-
-            if (!$forceRefresh && file_exists($releaseCacheFile) && (time() - filemtime($releaseCacheFile) < self::GITHUB_CACHE_DURATION)) {
-                $releaseData = json_decode(file_get_contents($releaseCacheFile), true);
             } else {
-                $releaseUrl = 'https://api.github.com/repos/ojs-services/' . $repo . '/releases/latest';
-                $releaseHeaders = array('Accept' => 'application/vnd.github.v3+json', 'User-Agent' => 'OJS-BulkPluginManager');
-                $ghToken = $this->getGithubToken();
-                if ($ghToken) {
-                    $releaseHeaders['Authorization'] = 'token ' . $ghToken;
-                }
-                try {
-                    $response = $client->request('GET', $releaseUrl, [
-                        'timeout' => 15,
-                        'connect_timeout' => 10,
-                        'headers' => $releaseHeaders
-                    ]);
-                    $releaseData = json_decode((string)$response->getBody(), true);
-                    file_put_contents($releaseCacheFile, json_encode($releaseData));
-                } catch (Exception $e) {
-                    if (file_exists($releaseCacheFile)) {
-                        $releaseData = json_decode(file_get_contents($releaseCacheFile), true);
-                    }
-                }
+                // No compatible release found — fall back to the default branch manifest.
+                // A missing <compatibility> block keeps the historical "assume compatible".
+                $compat = $this->xmlCompatibility($manifest);
+                $pluginData['compatible'] = ($compat === null) ? true : $compat;
             }
+
+            // Download URL comes from the SELECTED (compatible) release, never from
+            // /releases/latest — that would hand an OJS 3.5 package to an OJS 3.3 site.
+            $releaseData = $selected ? $selected['release'] : null;
 
             if ($releaseData && isset($releaseData['assets']) && count($releaseData['assets']) > 0) {
                 foreach ($releaseData['assets'] as $asset) {
