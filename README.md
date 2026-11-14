@@ -1,6 +1,6 @@
 # Bulk Plugin Manager for OJS
 
-![Version](https://img.shields.io/badge/version-1.11.5-blue)
+![Version](https://img.shields.io/badge/version-1.12.4-blue)
 ![OJS](https://img.shields.io/badge/OJS-3.3.x-green)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange)
 
@@ -12,9 +12,9 @@ A full-featured plugin management dashboard for Open Journal Systems (OJS) 3.3.x
 
 - **Dashboard** - Overview of all plugins with status counts at a glance
 - **Bulk Operations** - Select multiple plugins and update/install in one go
-- **OJS Services** - Browse and install plugins from [github.com/ojs-services](https://github.com/ojs-services) directly
+- **OJS Services** - Browse and install plugins from [github.com/ojs-services](https://github.com/ojs-services) directly, enable or disable them per journal and open their settings from the same card
 - **DB Sync Fix** - Detect and repair database-file version mismatches that crash the OJS plugin page
-- **Backup & Restore** - Automatic backups on update with one-click restore
+- **Backup & Restore** - Automatic backups on update with one-click restore; bulk cleanup of old backups (select all, keep newest per plugin, older than 30 days)
 - **PKP Gallery** - Install any compatible plugin from the official PKP Plugin Gallery
 - **Sidebar Navigation** - OJS-style left menu for quick access across backend pages
 - **Bilingual UI** - English and Turkish interface
@@ -33,9 +33,11 @@ https://yoursite.com/index.php/JOURNAL/bulkPluginManager
 
 Or click the **Bulk Plugin Manager** link in the OJS sidebar.
 
+> **Upgrade notice:** versions before 1.12.2.0 could pick the package of the wrong OJS line when two lines shared a version number, and versions before 1.12.4.0 could install OJS 3.4/3.5 code on OJS 3.3 when a release had no `<compatibility>` block. Please update to 1.12.4.0 or later.
+
 ## Compatibility
 
-OJS 3.3.0.0 - 3.3.0.22
+OJS 3.3.0.0 - 3.3.0.23
 
 ## Security
 

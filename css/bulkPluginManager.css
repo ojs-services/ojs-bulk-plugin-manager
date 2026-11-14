@@ -292,3 +292,18 @@
 .bpm-app .ojs-services-header h3 { margin: 0; font-size: 15px; font-weight: 600; }
 .bpm-app .ojs-services-header p { margin: 4px 0 0; font-size: 12px; opacity: 0.9; }
 .bpm-app .ojs-services-loading { padding: 40px; text-align: center; color: #666; }
+
+/* OJS Services: enable/disable switch + settings */
+.bpm-app .ojs-service-card .card-controls { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; padding: 8px 10px; background: #f8f9fa; border-radius: 6px; flex-wrap: wrap; }
+.bpm-app .ojs-toggle { display: inline-flex; align-items: center; gap: 8px; background: none; border: none; padding: 0; cursor: pointer; font-size: 12px; font-weight: 600; color: #555; }
+.bpm-app .ojs-toggle:disabled { cursor: not-allowed; opacity: 0.6; }
+.bpm-app .ojs-toggle.busy { cursor: progress; opacity: 0.6; }
+.bpm-app .ojs-toggle-track { position: relative; width: 36px; height: 20px; border-radius: 10px; background: #c9ced6; transition: background 0.2s; flex-shrink: 0; }
+.bpm-app .ojs-toggle-knob { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.25); transition: left 0.2s; }
+.bpm-app .ojs-toggle.on .ojs-toggle-track { background: #2e7d32; }
+.bpm-app .ojs-toggle.on .ojs-toggle-knob { left: 18px; }
+.bpm-app .ojs-toggle.on .ojs-toggle-label { color: #2e7d32; }
+.bpm-app .ojs-toggle:focus-visible .ojs-toggle-track { outline: 2px solid var(--bpm-primary); outline-offset: 2px; }
+.bpm-app .ojs-always-on { font-size: 11px; font-weight: 600; color: #2e7d32; background: #e8f5e9; padding: 3px 10px; border-radius: 12px; }
+.bpm-app .btn-ojs-settings { display: inline-flex; align-items: center; gap: 4px; background: #fff; color: var(--bpm-primary); border: 1px solid #cfd8e3; padding: 5px 12px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600; text-decoration: none; transition: all 0.2s; }
+.bpm-app .btn-ojs-settings:hover { background: var(--bpm-primary); color: #fff; border-color: var(--bpm-primary); }

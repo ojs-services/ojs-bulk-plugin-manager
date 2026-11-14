@@ -50,7 +50,7 @@
         <!-- Footer / attribution -->
         <div class="footer">
             <span data-i18n="poweredBy">Powered by</span> <a href="https://ojs-services.com/" target="_blank">OJS Services</a> ·
-            <span data-i18n="version">Version</span> 1.11.5 ·
+            <span data-i18n="version">Version</span> 1.12.4 ·
             OJS <span id="ojsVersion">-</span>
         </div>
 
@@ -261,6 +261,16 @@
             ojsViewRepo: 'GitHub',
             ojsRefresh: 'Refresh',
             ojsNoPlugins: 'No OJS Services plugins found.',
+            ojsNoPackage: 'No package for this OJS version',
+            ojsActive: 'Active',
+            ojsInactive: 'Inactive',
+            ojsToggleOnTip: 'Click to enable this plugin for this journal',
+            ojsToggleOffTip: 'Click to disable this plugin for this journal',
+            ojsAlwaysOn: 'Always active',
+            ojsAlwaysOnTip: 'OJS keeps this type of plugin (e.g. import/export) always active.',
+            ojsSettings: 'Settings',
+            ojsToggleFailed: 'The plugin state could not be changed. Please reload the page and try again.',
+            ojsSettingsUnavailable: 'The settings window could not be opened. Please use Website Settings > Plugins.',
             navSubmissions: 'Submissions',
             navIssues: 'Issues',
             navSettings: 'Settings',
@@ -283,6 +293,14 @@
             btnFixAll: '🔧 Fix All',
             confirmRestore: 'Are you sure you want to restore this backup? Current files will be replaced.',
             confirmDeleteBackup: 'Are you sure you want to delete this backup?',
+            bkSelectAll: 'Select all',
+            bkSelectNone: 'Clear selection',
+            bkSelectKeepLatest: 'Keep newest per plugin',
+            bkSelectKeepLatestTip: 'Selects every backup except the newest one of each plugin',
+            bkSelectOlder: 'Older than 30 days',
+            bkSelected: 'Selected:',
+            bkDeleteSelected: 'Delete selected',
+            confirmBulkDeleteBackups: 'backup(s) will be permanently deleted. Continue?',
             confirmFixAll: 'This will fix all database issues in this list one by one. Continue?',
             restoring: 'Restoring...',
             restored: 'Restored',
@@ -466,6 +484,14 @@
             btnFixAll: '🔧 Tümünü Onar',
             confirmRestore: 'Bu yedeği geri yüklemek istediğinize emin misiniz? Mevcut dosyalar değiştirilecek.',
             confirmDeleteBackup: 'Bu yedeği silmek istediğinize emin misiniz?',
+            bkSelectAll: 'Tümünü seç',
+            bkSelectNone: 'Seçimi temizle',
+            bkSelectKeepLatest: 'Her eklentinin en yenisini koru',
+            bkSelectKeepLatestTip: 'Her eklentinin en yeni yedeği dışındaki tüm yedekleri seçer',
+            bkSelectOlder: '30 günden eski',
+            bkSelected: 'Seçili:',
+            bkDeleteSelected: 'Seçilenleri sil',
+            confirmBulkDeleteBackups: 'yedek kalıcı olarak silinecek. Devam edilsin mi?',
             confirmFixAll: 'Bu listedeki tüm DB sorunları sırayla düzeltilecek. Devam edilsin mi?',
             restoring: 'Yükleniyor...',
             restored: 'Yüklendi',
@@ -493,6 +519,16 @@
             ojsViewRepo: 'GitHub',
             ojsRefresh: 'Yenile',
             ojsNoPlugins: 'OJS Services eklentisi bulunamadı.',
+            ojsNoPackage: 'Bu OJS sürümü için paket yok',
+            ojsActive: 'Aktif',
+            ojsInactive: 'Pasif',
+            ojsToggleOnTip: 'Bu dergide etkinleştirmek için tıklayın',
+            ojsToggleOffTip: 'Bu dergide devre dışı bırakmak için tıklayın',
+            ojsAlwaysOn: 'Her zaman aktif',
+            ojsAlwaysOnTip: 'OJS bu tür eklentileri (ör. içe/dışa aktarma) her zaman aktif tutar.',
+            ojsSettings: 'Ayarlar',
+            ojsToggleFailed: 'Eklentinin durumu değiştirilemedi. Lütfen sayfayı yenileyip tekrar deneyin.',
+            ojsSettingsUnavailable: 'Ayarlar penceresi açılamadı. Lütfen Web Sitesi Ayarları > Eklentiler bölümünü kullanın.',
             navSubmissions: 'Gönderiler',
             navIssues: 'Sayılar',
             navSettings: 'Ayarlar',
@@ -789,9 +825,21 @@
 
         h += '<div class="table-controls">';
         h += '<input type="text" class="search-input" id="search-backups" placeholder="🔍 ' + t('search') + '" onkeyup="filterTable(\'backups\')">';
+        h += '<div class="filter-btns">';
+        h += '<button type="button" class="filter-btn" onclick="selectBackups(\'all\')">' + t('bkSelectAll') + '</button>';
+        h += '<button type="button" class="filter-btn" onclick="selectBackups(\'keepLatest\')" title="' + escapeHtml(t('bkSelectKeepLatestTip')) + '">' + t('bkSelectKeepLatest') + '</button>';
+        h += '<button type="button" class="filter-btn" onclick="selectBackups(\'older\')">' + t('bkSelectOlder') + '</button>';
+        h += '<button type="button" class="filter-btn" onclick="selectBackups(\'none\')">' + t('bkSelectNone') + '</button>';
+        h += '</div>';
+        h += '</div>';
+
+        h += '<div class="bulk-bar">';
+        h += '<span>' + t('bkSelected') + '</span> <span class="bulk-count" id="bkCount">0</span>';
+        h += '<button type="button" class="btn btn-danger-sm" id="bkDeleteBtn" disabled onclick="deleteSelectedBackups()">🗑️ ' + t('bkDeleteSelected') + '</button>';
         h += '</div>';
 
         h += '<div class="table-wrapper"><table><thead><tr>';
+        h += '<th class="col-check"><input type="checkbox" id="bkCheckAll" onchange="selectBackups(this.checked ? \'all\' : \'none\')" aria-label="' + escapeHtml(t('bkSelectAll')) + '"></th>';
         h += '<th class="col-plugin">' + t('thPlugin') + '</th>';
         h += '<th class="col-cat">' + t('thCategory') + '</th>';
         h += '<th class="col-ver">' + t('thDate') + '</th>';
@@ -801,6 +849,7 @@
 
         items.forEach(function(b, idx) {
             h += '<tr id="backup-row-' + idx + '" data-search="' + escapeHtml((b.product + ' ' + b.date).toLowerCase()) + '">';
+            h += '<td class="col-check"><input type="checkbox" class="bkcheck" data-idx="' + idx + '" onchange="updateBackupSelection()"></td>';
             h += '<td class="col-plugin"><span class="plugin-name">' + escapeHtml(b.product) + '</span></td>';
             h += '<td class="col-cat"><span class="badge badge-gray">' + escapeHtml(b.category) + '</span></td>';
             h += '<td class="col-ver">' + escapeHtml(b.date) + '</td>';
@@ -1607,6 +1656,86 @@
         startProcess([item]);
     }
 
+    // --- Bulk selection / deletion of backups ---
+    function backupTime(b) {
+        // b.date is "YYYY-MM-DD HH:MM:SS"
+        var ts = Date.parse(String(b.date || '').replace(' ', 'T'));
+        return isNaN(ts) ? 0 : ts;
+    }
+
+    function visibleBackupBoxes() {
+        return Array.prototype.slice.call(document.querySelectorAll('#tab-backups .bkcheck')).filter(function(box) {
+            var row = box.closest('tr');
+            return row && row.style.display !== 'none';
+        });
+    }
+
+    function selectBackups(mode) {
+        var items = data.backups || [];
+        var boxes = visibleBackupBoxes();
+        if (mode === 'none') {
+            document.querySelectorAll('#tab-backups .bkcheck').forEach(function(box) { box.checked = false; });
+        } else if (mode === 'all') {
+            boxes.forEach(function(box) { box.checked = true; });
+        } else if (mode === 'older') {
+            var limit = Date.now() - 30 * 24 * 60 * 60 * 1000;
+            boxes.forEach(function(box) {
+                var b = items[parseInt(box.getAttribute('data-idx'), 10)];
+                var ts = b ? backupTime(b) : 0;
+                box.checked = ts > 0 && ts < limit;
+            });
+        } else if (mode === 'keepLatest') {
+            // Per plugin, keep the newest backup and select all older ones.
+            var newest = {};
+            boxes.forEach(function(box) {
+                var i = parseInt(box.getAttribute('data-idx'), 10), b = items[i];
+                if (!b) return;
+                var key = b.category + '/' + b.product, ts = backupTime(b);
+                if (!(key in newest) || ts > newest[key].ts) newest[key] = { idx: i, ts: ts };
+            });
+            boxes.forEach(function(box) {
+                var i = parseInt(box.getAttribute('data-idx'), 10), b = items[i];
+                box.checked = !!b && newest[b.category + '/' + b.product].idx !== i;
+            });
+        }
+        updateBackupSelection();
+    }
+
+    function updateBackupSelection() {
+        var checked = document.querySelectorAll('#tab-backups .bkcheck:checked').length;
+        var total = document.querySelectorAll('#tab-backups .bkcheck').length;
+        var countEl = document.getElementById('bkCount');
+        var btn = document.getElementById('bkDeleteBtn');
+        var all = document.getElementById('bkCheckAll');
+        if (countEl) countEl.textContent = checked;
+        if (btn) btn.disabled = checked === 0 || processing;
+        if (all) {
+            all.checked = total > 0 && checked === total;
+            all.indeterminate = checked > 0 && checked < total;
+        }
+    }
+
+    function deleteSelectedBackups() {
+        var items = data.backups || [];
+        var list = [];
+        document.querySelectorAll('#tab-backups .bkcheck:checked').forEach(function(box) {
+            var b = items[parseInt(box.getAttribute('data-idx'), 10)];
+            if (!b) return;
+            list.push({
+                id: b.id,
+                product: b.product,
+                category: b.category,
+                displayName: b.product + ' (' + b.date + ')',
+                _action: 'delete_backup',
+                backupId: b.id
+            });
+        });
+        if (list.length === 0) return;
+        if (!confirm(list.length + ' ' + t('confirmBulkDeleteBackups'))) return;
+        currentAction = 'delete_backup';
+        startProcess(list);
+    }
+
     function deleteBackup(id, product, category) {
         if (!confirm(t('confirmDeleteBackup'))) return;
 
@@ -1714,12 +1843,17 @@
                 h += '<span class="card-ver local">' + t('ojsLocalVersion') + ': ' + escapeHtml(p.installedVersion) + '</span>';
             }
             h += '</div>';
+            if (p.controls) {
+                h += renderOjsControls(p, idx);
+            }
             h += '<div class="card-actions">';
 
             if (p.status === 'available' && p.downloadUrl) {
                 h += '<button class="btn-ojs-install" id="ojs-btn-' + escapeHtml(p.product) + '" onclick="installOjsServicePlugin(\'' + escapeHtml(p.product) + '\', \'' + escapeHtml(p.downloadUrl) + '\', \'install\', \'' + escapeHtml(p.category || 'generic') + '\')">' + t('ojsInstallBtn') + '</button>';
             } else if (p.status === 'update' && p.downloadUrl) {
                 h += '<button class="btn-ojs-update" id="ojs-btn-' + escapeHtml(p.product) + '" onclick="installOjsServicePlugin(\'' + escapeHtml(p.product) + '\', \'' + escapeHtml(p.downloadUrl) + '\', \'update\', \'' + escapeHtml(p.category || 'generic') + '\')">' + t('ojsUpdateBtn') + '</button>';
+            } else if ((p.status === 'available' || p.status === 'update') && !p.downloadUrl) {
+                h += '<span class="status-text orange">⚠️ ' + t('ojsNoPackage') + '</span>';
             } else if (p.status === 'installed') {
                 h += '<span class="status-text green">✅ ' + t('ojsInstalled') + '</span>';
             } else if (p.status === 'incompatible') {
@@ -1733,6 +1867,98 @@
         });
         h += '</div>';
         content.innerHTML = h;
+    }
+
+    // --- Enable / disable + settings for installed OJS Services plugins ---
+    // All actions call OJS core's own plugin grid endpoints (the same ones used by
+    // Website Settings > Plugins), so permissions, CSRF and plugin hooks match.
+    function renderOjsControls(p, idx) {
+        var c = p.controls;
+        var h = '<div class="card-controls">';
+
+        if (c.canEnable || c.canDisable) {
+            var on = !!c.enabled;
+            var allowed = on ? c.canDisable : c.canEnable;
+            h += '<button type="button" class="ojs-toggle ' + (on ? 'on' : 'off') + '" id="ojs-toggle-' + idx + '"'
+                + ' role="switch" aria-checked="' + (on ? 'true' : 'false') + '"'
+                + (allowed ? '' : ' disabled')
+                + ' title="' + escapeHtml(on ? t('ojsToggleOffTip') : t('ojsToggleOnTip')) + '"'
+                + ' onclick="toggleOjsPlugin(' + idx + ')">'
+                + '<span class="ojs-toggle-track"><span class="ojs-toggle-knob"></span></span>'
+                + '<span class="ojs-toggle-label">' + (on ? t('ojsActive') : t('ojsInactive')) + '</span>'
+                + '</button>';
+        } else {
+            // e.g. import/export plugins: OJS keeps them always active (no toggle)
+            h += '<span class="ojs-always-on" title="' + escapeHtml(t('ojsAlwaysOnTip')) + '">' + t('ojsAlwaysOn') + '</span>';
+        }
+
+        if (c.settings) {
+            if (c.settings.type === 'page') {
+                h += '<a class="btn-ojs-settings" href="' + escapeHtml(c.settings.url) + '">⚙ ' + t('ojsSettings') + '</a>';
+            } else {
+                h += '<button type="button" class="btn-ojs-settings" onclick="openOjsPluginSettings(' + idx + ')">⚙ ' + t('ojsSettings') + '</button>';
+            }
+        }
+
+        h += '</div>';
+        return h;
+    }
+
+    function parseCoreJson(text) {
+        // Core grid endpoints return JSON; tolerate stray output before it.
+        try { return JSON.parse(text); } catch (e) {}
+        // Built from a char code: a literal brace followed by a quote would be
+        // parsed by Smarty as a template tag.
+        var at = text.indexOf(String.fromCharCode(123) + '"status"');
+        if (at > -1) {
+            try { return JSON.parse(text.substring(at)); } catch (e2) {}
+        }
+        return null;
+    }
+
+    function toggleOjsPlugin(idx) {
+        var p = ojsServicesData ? ojsServicesData[idx] : null;
+        if (!p || !p.controls) return;
+        var c = p.controls;
+        var enable = !c.enabled;
+        var btn = document.getElementById('ojs-toggle-' + idx);
+        if (btn) { btn.disabled = true; btn.classList.add('busy'); }
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', enable ? c.enableUrl : c.disableUrl, true);
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState !== 4) return;
+            var result = (xhr.status === 200) ? parseCoreJson(xhr.responseText) : null;
+            if (result && (result.status === true || result.status === 'true')) {
+                // Re-read state from the server (settings appear once enabled)
+                loadOjsServicesPlugins(false);
+            } else {
+                if (btn) { btn.disabled = false; btn.classList.remove('busy'); }
+                alert(t('ojsToggleFailed'));
+            }
+        };
+        xhr.send(withCsrf(''));
+    }
+
+    function openOjsPluginSettings(idx) {
+        var p = ojsServicesData ? ojsServicesData[idx] : null;
+        if (!p || !p.controls || !p.controls.settings) return;
+        var s = p.controls.settings;
+        var jq = window.jQuery;
+        if (!jq || !jq.pkp || !jq.pkp.classes || !jq.pkp.classes.Helper) {
+            alert(t('ojsSettingsUnavailable'));
+            return;
+        }
+        // Open the plugin's own settings form in OJS's standard modal; the form
+        // saves through core and the modal closes itself on success.
+        var uuid = jq.pkp.classes.Helper.uuid();
+        jq('<div id="' + uuid + '" class="pkp_modal pkpModalWrapper" tabindex="-1"></div>')
+            .pkpHandler('$.pkp.controllers.modal.AjaxModalHandler', {
+                title: escapeHtml(s.title || p.displayName),
+                url: s.url
+            });
     }
 
     function installOjsServicePlugin(product, downloadUrl, action, category) {

@@ -164,12 +164,11 @@ class BulkPluginManagerHandler extends Handler
      */
     public function getUpdatablePlugins($args, $request)
     {
+        ob_start(); // swallow any stray warnings/notices so they can't corrupt the JSON
         $refresh = $request->getUserVar('refresh') ? true : false;
         $result = $this->fetchAllPlugins($refresh);
 
-        header('Content-Type: application/json');
-        echo json_encode($result);
-        exit;
+        $this->sendJson($result);
     }
 
     /**
@@ -179,14 +178,30 @@ class BulkPluginManagerHandler extends Handler
     {
         import('lib.pkp.classes.site.VersionCheck');
         $currentVersion = VersionCheck::getCurrentCodeVersion();
-        $major = $currentVersion->getMajor();
-        $minor = $currentVersion->getMinor();
 
-        $parts = explode('.', $versionString);
+        // Delegate to OJS's own compatibility check (Composer Semver under the
+        // hood) — exactly what the core plugin gallery / "plugin updates" list
+        // uses. This understands range syntax such as "~3.3.0.18" (>= 3.3.0.18
+        // within the 3.3.0 line) used by newer releases. The previous string
+        // parsing cast "~3" to 0, so any release whose only 3.3 statement used
+        // the tilde form looked incompatible — which made the tool pick an older
+        // release (e.g. iThenticate 1.0.6.1 instead of 1.3.0.2) and disagree with
+        // OJS's own update list.
+        if (method_exists($currentVersion, 'isCompatible')) {
+            try {
+                return (bool) $currentVersion->isCompatible((string) $versionString);
+            } catch (Exception $e) {
+                // Unparseable constraint — fall through to the lenient check below.
+            }
+        }
+
+        // Fallback (older cores / unparseable constraint): strip a leading range
+        // operator and match on major.minor only.
+        $clean = ltrim((string) $versionString, "~^<>= \t");
+        $parts = explode('.', $clean);
         $galleryMajor = isset($parts[0]) ? (int) $parts[0] : 0;
         $galleryMinor = isset($parts[1]) ? (int) $parts[1] : 0;
-
-        return ($galleryMajor == $major && $galleryMinor == $minor);
+        return ($galleryMajor == $currentVersion->getMajor() && $galleryMinor == $currentVersion->getMinor());
     }
 
     /**
@@ -854,6 +869,7 @@ class BulkPluginManagerHandler extends Handler
      */
     public function updatePlugin($args, $request)
     {
+        ob_start(); // swallow any stray warnings/notices so they can't corrupt the JSON
         $this->requireCSRF($request);
 
         $product = $request->getUserVar('product');
@@ -1262,16 +1278,44 @@ class BulkPluginManagerHandler extends Handler
             if (strtolower($archiveProduct) !== strtolower($product)) {
                 throw new Exception('Archive contains plugin "' . $archiveProduct . '" but "' . $product . '" was requested');
             }
-            if ($this->xmlCompatibility($manifest) === false) {
-                import('lib.pkp.classes.site.VersionCheck');
+            import('lib.pkp.classes.site.VersionCheck');
+            $ojsLine = $this->currentOjsLine();
+            $compat = $this->xmlCompatibility($manifest);
+            if ($compat === false) {
                 throw new Exception(
-                    'Package targets a different OJS version (this site runs '
-                    . VersionCheck::getCurrentCodeVersion()->getVersionString() . ')'
+                    'Package targets a different OJS version (this site runs OJS '
+                    . VersionCheck::getCurrentCodeVersion()->getVersionString() . '). Nothing was changed.'
                 );
+            }
+            if ($compat === null) {
+                // No <compatibility> block: judge by the code itself.
+                $codeLine = $this->packageCodeLine($pluginSourceDir, $manifest);
+                $legacySite = version_compare($ojsLine, '3.4', '<');
+                if ($legacySite && $codeLine === '3.4+') {
+                    throw new Exception(
+                        'This package contains OJS 3.4/3.5 code (namespaced classes) and cannot run on OJS '
+                        . $ojsLine . '. Nothing was changed.'
+                    );
+                }
+                if (!$legacySite && $codeLine === '3.3') {
+                    throw new Exception(
+                        'This package contains OJS 3.3 code (.inc.php classes) and cannot run on OJS '
+                        . $ojsLine . '. Nothing was changed.'
+                    );
+                }
             }
 
             // Target directory
             $pluginDestDir = Core::getBaseDir() . '/plugins/' . $category . '/' . $product;
+
+            // Smoke-test baseline: confirm, BEFORE anything changes, that OJS boots in a
+            // separate CLI process. If it does, a failure after the install can only come
+            // from the new plugin. '' = smoke test unavailable on this server (skipped).
+            $cliPhp = $this->findCliPhp($tempDir);
+
+            // State needed to undo the install
+            $versionRows = $this->captureVersionRows($category, $product);
+            $zipFile = null;
 
             // Backup existing plugin as ZIP before overwriting
             if (is_dir($pluginDestDir)) {
@@ -1285,7 +1329,8 @@ class BulkPluginManagerHandler extends Handler
 
             // Copy files
             if (!$this->recursiveCopy($pluginSourceDir, $pluginDestDir)) {
-                throw new Exception('File copy failed');
+                $restored = $this->rollbackInstall($category, $product, $pluginDestDir, $zipFile, $versionRows);
+                throw new Exception('File copy failed; ' . $restored . '.');
             }
 
             // Update database version
@@ -1293,6 +1338,22 @@ class BulkPluginManagerHandler extends Handler
             if (!$this->updateDatabaseVersion($versionFile, $category, $product)) {
                 // Don't fail, just log
                 error_log('Warning: Could not update version in database for ' . $product);
+            }
+
+            // Post-install smoke test: the plugin class must load. Otherwise undo
+            // everything (files from the ZIP backup, versions rows as they were).
+            if ($cliPhp !== '') {
+                $smoke = $this->runSmokeScript($cliPhp, $tempDir, 'load', $category, $product);
+                if (!$smoke['ok']) {
+                    error_log('BulkPluginManager: smoke test failed for ' . $category . '/' . $product . ":\n" . $smoke['output']);
+                    $restored = $this->rollbackInstall($category, $product, $pluginDestDir, $zipFile, $versionRows);
+                    throw new Exception(
+                        'The installed plugin failed to load (' . $this->smokeErrorSummary($smoke) . '); '
+                        . $restored . '.'
+                    );
+                }
+            } else {
+                error_log('BulkPluginManager: post-install smoke test skipped for ' . $category . '/' . $product);
             }
 
             // Cleanup temp
@@ -1560,8 +1621,57 @@ class BulkPluginManagerHandler extends Handler
      * Repos in ojs-services org to exclude from plugin discovery
      */
     const OJS_SERVICES_EXCLUDED_REPOS = array(
-        'ojs-bulk-plugin-manager'
+        'ojs-bulk-plugin-manager',
+        'bulkPluginManager'
     );
+
+    /**
+     * Package file name convention for OJS Services releases:
+     *   <product>-ojs<line>[-<line>]-<version>[-demo|-yama].tar.gz
+     *   e.g. mailSettings-ojs3.3-1.4.4.0.tar.gz, canonicalUrl-ojs3.4-3.5-1.3.0.0.tar.gz
+     */
+    const RELEASE_ASSET_PATTERN = '/^([A-Za-z0-9]+)-ojs(3\.\d+)(?:-(3\.\d+))?-(\d+(?:\.\d+){1,3})(?:-(demo|yama))?\.tar\.gz$/';
+
+    /**
+     * Choose the package to download from a GitHub release's assets.
+     *
+     * Assets named by the convention above are matched against the running OJS
+     * line (a range such as ojs3.4-3.5 covers both); demo builds are never
+     * installed. Older releases whose assets don't follow the convention fall
+     * back to the first non-demo .tar.gz, as before.
+     *
+     * @return string|null download URL, or null to let the caller fall back
+     */
+    private function pickReleaseAsset($assets)
+    {
+        import('lib.pkp.classes.site.VersionCheck');
+        $current = VersionCheck::getCurrentCodeVersion();
+        $line = $current->getMajor() . '.' . $current->getMinor();
+
+        $legacy = null;
+        foreach ($assets as $asset) {
+            $name = isset($asset['name']) ? (string) $asset['name'] : '';
+            $url = isset($asset['browser_download_url']) ? (string) $asset['browser_download_url'] : '';
+            if ($url === '' || substr($name, -7) !== '.tar.gz') {
+                continue;
+            }
+            if (preg_match(self::RELEASE_ASSET_PATTERN, $name, $m)) {
+                if (isset($m[5]) && $m[5] === 'demo') {
+                    continue;
+                }
+                $from = $m[2];
+                $to = (isset($m[3]) && $m[3] !== '') ? $m[3] : $m[2];
+                if (version_compare($line, $from, '>=') && version_compare($line, $to, '<=')) {
+                    return $url;
+                }
+                continue; // built for another OJS line
+            }
+            if ($legacy === null && stripos($name, 'demo') === false) {
+                $legacy = $url;
+            }
+        }
+        return $legacy;
+    }
 
     /**
      * GitHub API cache duration (1 hour)
@@ -1670,12 +1780,11 @@ class BulkPluginManagerHandler extends Handler
      */
     public function getOjsServicesPlugins($args, $request)
     {
+        ob_start(); // swallow any stray warnings/notices so they can't corrupt the JSON
         $refresh = $request->getUserVar('refresh') ? true : false;
         $result = $this->fetchOjsServicesPlugins($refresh);
 
-        header('Content-Type: application/json');
-        echo json_encode($result);
-        exit;
+        $this->sendJson($result);
     }
 
     /**
@@ -1779,6 +1888,31 @@ class BulkPluginManagerHandler extends Handler
     }
 
     /**
+     * Series-level compatibility for a single <version> entry of a plugin's OWN
+     * version.xml: true when it targets the running OJS major.minor line
+     * (e.g. any 3.3.0.x on an OJS 3.3 site). Range prefixes like "~" are stripped.
+     *
+     * Deliberately more lenient than isVersionCompatible(): many plugins list
+     * explicit patch versions only up to the release they were tested on (e.g.
+     * 3.3.0.0 … 3.3.0.16) and still run fine on later 3.3.0.x patches. The job of
+     * this check is to reject the WRONG SERIES (an OJS 3.5 package on a 3.3 site),
+     * not to demand an exact patch match — that would wrongly flag working plugins
+     * as incompatible and block their installation.
+     */
+    private function isSeriesCompatible($versionString)
+    {
+        import('lib.pkp.classes.site.VersionCheck');
+        $currentVersion = VersionCheck::getCurrentCodeVersion();
+
+        $clean = ltrim((string) $versionString, "~^<>= \t");
+        $parts = explode('.', $clean);
+        if (!isset($parts[0], $parts[1]) || !ctype_digit($parts[0]) || !ctype_digit(preg_replace('/\D.*$/', '', $parts[1]))) {
+            return false;
+        }
+        return ((int) $parts[0] == $currentVersion->getMajor() && (int) $parts[1] == $currentVersion->getMinor());
+    }
+
+    /**
      * Does this version.xml declare compatibility with the running OJS version?
      * @return bool|null true = compatible, false = declares another OJS series,
      *                   null = no <compatibility> block at all (caller decides)
@@ -1792,13 +1926,293 @@ class BulkPluginManagerHandler extends Handler
             $app = (string) $compat['application'];
             if ($app === 'ojs2' || $app === 'ojs') {
                 foreach ($compat->version as $ver) {
-                    if ($this->isVersionCompatible((string) $ver)) {
+                    // Series-level check (see isSeriesCompatible): reject the wrong
+                    // OJS line, but don't require an exact patch match.
+                    if ($this->isSeriesCompatible((string) $ver)) {
                         return true;
                     }
                 }
             }
         }
         return false;
+    }
+
+
+    /**
+     * Running OJS series as "major.minor" (e.g. "3.3").
+     */
+    private function currentOjsLine()
+    {
+        import('lib.pkp.classes.site.VersionCheck');
+        $v = VersionCheck::getCurrentCodeVersion();
+        return $v->getMajor() . '.' . $v->getMinor();
+    }
+
+    /**
+     * OJS line(s) a GitHub release is built for, read from its tag name
+     * ("ojs3.3-1.4.4.0", "ojs3.4-3.5-2.0.0.3") or, failing that, from its asset
+     * names (RELEASE_ASSET_PATTERN). Returns a list of array(from, to) ranges;
+     * an empty list means the line cannot be determined from naming.
+     */
+    private function releaseLineRanges($release)
+    {
+        $tag = isset($release['tag_name']) ? (string) $release['tag_name'] : '';
+        if (preg_match('/^ojs(3\.\d+)(?:-(3\.\d+))?-\d/', $tag, $m)) {
+            return array(array($m[1], (isset($m[2]) && $m[2] !== '') ? $m[2] : $m[1]));
+        }
+        $ranges = array();
+        if (!empty($release['assets']) && is_array($release['assets'])) {
+            foreach ($release['assets'] as $asset) {
+                $name = isset($asset['name']) ? (string) $asset['name'] : '';
+                if (preg_match(self::RELEASE_ASSET_PATTERN, $name, $m)) {
+                    if (isset($m[5]) && $m[5] === 'demo') {
+                        continue;
+                    }
+                    $ranges[] = array($m[2], (isset($m[3]) && $m[3] !== '') ? $m[3] : $m[2]);
+                }
+            }
+        }
+        return $ranges;
+    }
+
+    private function lineInRanges($line, $ranges)
+    {
+        foreach ($ranges as $r) {
+            if (version_compare($line, $r[0], '>=') && version_compare($line, $r[1], '<=')) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Which OJS generation the code in an extracted plugin folder targets.
+     * OJS 3.3 plugins load "<Class>.inc.php" files; OJS 3.4+ plugins use
+     * namespaced "<Class>.php" files ("namespace APP\plugins\...").
+     * @return string|null '3.3', '3.4+', or null when it cannot be told apart
+     */
+    private function packageCodeLine($pluginDir, $manifest)
+    {
+        $class = ($manifest && isset($manifest->class)) ? trim((string) $manifest->class) : '';
+
+        $legacy = false;
+        if ($class !== '' && file_exists($pluginDir . '/' . $class . '.inc.php')) {
+            $legacy = true;
+        } elseif (glob($pluginDir . '/*Plugin.inc.php')) {
+            $legacy = true;
+        }
+
+        $namespaced = false;
+        $candidates = array();
+        if ($class !== '' && file_exists($pluginDir . '/' . $class . '.php')) {
+            $candidates[] = $pluginDir . '/' . $class . '.php';
+        }
+        foreach ((array) glob($pluginDir . '/*Plugin.php') as $f) {
+            $candidates[] = $f;
+        }
+        foreach (array_unique($candidates) as $f) {
+            $head = @file_get_contents($f, false, null, 0, 4096);
+            if ($head !== false && preg_match('/^\s*namespace\s+APP\\\\plugins\\\\/m', $head)) {
+                $namespaced = true;
+                break;
+            }
+        }
+
+        if ($namespaced && !$legacy) {
+            return '3.4+';
+        }
+        if ($legacy && !$namespaced) {
+            return '3.3';
+        }
+        return null;
+    }
+
+    /**
+     * Cached PHP CLI binary usable for the post-install smoke test, or ''.
+     */
+    private $_cliPhp = null;
+
+    /**
+     * Find a PHP command-line binary of the SAME major.minor version as the web
+     * PHP, and verify it can bootstrap this OJS installation. Returns '' when
+     * none is usable (exec disabled, no CLI, version mismatch, bootstrap fails).
+     */
+    private function findCliPhp($workDir)
+    {
+        if ($this->_cliPhp !== null) {
+            return $this->_cliPhp;
+        }
+        $this->_cliPhp = '';
+
+        $disabled = array_map('trim', explode(',', (string) ini_get('disable_functions')));
+        if (!function_exists('exec') || in_array('exec', $disabled, true)) {
+            error_log('BulkPluginManager: smoke test unavailable (exec disabled)');
+            return '';
+        }
+
+        $mm = PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION;
+        $candidates = array();
+        if (PHP_SAPI === 'cli' || preg_match('/^php[0-9.]*(-cli)?(\.exe)?$/i', basename((string) PHP_BINARY))) {
+            $candidates[] = PHP_BINARY;
+        }
+        $ext = (string) ini_get('extension_dir');
+        if ($ext !== '') {
+            $base = dirname(rtrim($ext, '/\\'));
+            $candidates[] = $base . '/php.exe';
+            $candidates[] = $base . '/php';
+            $candidates[] = $base . '/bin/php';
+        }
+        $candidates[] = PHP_BINDIR . '/php';
+        $candidates[] = PHP_BINDIR . '/php.exe';
+        $candidates[] = '/opt/cpanel/ea-php' . PHP_MAJOR_VERSION . PHP_MINOR_VERSION . '/root/usr/bin/php';
+        $candidates[] = '/opt/alt/php' . PHP_MAJOR_VERSION . PHP_MINOR_VERSION . '/usr/bin/php';
+        $candidates[] = '/usr/bin/php' . $mm;
+        $candidates[] = '/usr/local/bin/php';
+        $candidates[] = '/usr/bin/php';
+
+        foreach (array_unique($candidates) as $php) {
+            if (!@is_file($php)) {
+                continue;
+            }
+            $res = $this->runSmokeScript($php, $workDir, 'boot', '', '');
+            if ($res['boot']) {
+                $this->_cliPhp = $php;
+                return $php;
+            }
+        }
+        error_log('BulkPluginManager: smoke test unavailable (no PHP ' . $mm . ' CLI that can bootstrap OJS)');
+        return '';
+    }
+
+    /**
+     * Run OJS in a separate CLI process. Mode "boot" only bootstraps OJS (this
+     * loads every enabled generic plugin); mode "load" also loads the given
+     * plugin. A separate process is required: in this request the old plugin
+     * class may already be in memory, and a fatal error must not kill the
+     * request that has to roll the installation back.
+     * @return array('start' => bool, 'boot' => bool, 'ok' => bool, 'output' => string)
+     */
+    private function runSmokeScript($php, $workDir, $mode, $category, $product)
+    {
+        $base = Core::getBaseDir();
+        $script = $workDir . '/bpm_smoke_' . $mode . '.php';
+        $code = "<?php\n"
+            . "echo 'BPM_CLI_START ' . PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION . \"\\n\";\n"
+            . "if (PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION !== " . var_export(PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION, true) . ") { echo \"BPM_CLI_MISMATCH\\n\"; exit(3); }\n"
+            . "chdir(" . var_export($base, true) . ");\n"
+            . "require(" . var_export($base . '/tools/bootstrap.inc.php', true) . ");\n"
+            . "class BpmSmokeTool extends CommandLineTool {\n"
+            . "  function execute() {\n"
+            . "    echo \"BPM_BOOT_OK\\n\";\n"
+            . "    if (" . var_export($mode, true) . " !== 'load') return;\n"
+            . "    \$p = PluginRegistry::loadPlugin(" . var_export($category, true) . ", " . var_export($product, true) . ");\n"
+            . "    if (!is_object(\$p)) { echo \"BPM_SMOKE_FAIL plugin did not load\\n\"; return; }\n"
+            . "    \$p->getDisplayName();\n"
+            . "    echo 'BPM_SMOKE_OK ' . get_class(\$p) . \"\\n\";\n"
+            . "  }\n"
+            . "}\n"
+            . "\$t = new BpmSmokeTool(array('bpmSmoke'));\n"
+            . "\$t->execute();\n";
+        if (@file_put_contents($script, $code) === false) {
+            return array('start' => false, 'boot' => false, 'ok' => false, 'output' => 'cannot write smoke script');
+        }
+
+        $out = array();
+        $rc = 0;
+        $cmd = escapeshellarg($php) . ' -d display_errors=stderr -d log_errors=0 -d xdebug.mode=off '
+            . escapeshellarg($script) . ' 2>&1';
+        @exec($cmd, $out, $rc);
+        @unlink($script);
+
+        $text = implode("\n", (array) $out);
+        return array(
+            'start' => strpos($text, 'BPM_CLI_START') !== false && strpos($text, 'BPM_CLI_MISMATCH') === false,
+            'boot' => strpos($text, 'BPM_BOOT_OK') !== false,
+            'ok' => strpos($text, 'BPM_SMOKE_OK') !== false,
+            'output' => $text,
+        );
+    }
+
+    /**
+     * Last error lines of a smoke run, for a readable failure message.
+     */
+    private function smokeErrorSummary($smoke)
+    {
+        $lines = array();
+        foreach (preg_split('/\r?\n/', (string) $smoke['output']) as $line) {
+            if (preg_match('/(Fatal error|Parse error|Uncaught|Error:|BPM_SMOKE_FAIL)/i', $line)) {
+                $lines[] = trim(preg_replace('/\s+/', ' ', $line));
+            }
+        }
+        $summary = substr(implode(' | ', array_slice($lines, 0, 2)), 0, 400);
+        if (empty($smoke['boot'])) {
+            // OJS itself could not start with the new files in place — what the site
+            // would show too (e.g. the plugin list no longer opens).
+            return 'OJS could not start with this plugin installed' . ($summary !== '' ? ': ' . $summary : '');
+        }
+        return $summary !== '' ? $summary : 'the plugin class could not be loaded';
+    }
+
+    /**
+     * Snapshot of the versions rows for a plugin (to undo a failed install).
+     */
+    private function captureVersionRows($category, $product)
+    {
+        $rows = array();
+        $versionDao = DAORegistry::getDAO('VersionDAO');
+        $res = $versionDao->retrieve(
+            'SELECT * FROM versions WHERE LOWER(product_type) = LOWER(?) AND LOWER(product) = LOWER(?)',
+            array('plugins.' . $category, $product)
+        );
+        foreach ($res as $row) {
+            $rows[] = (array) $row;
+        }
+        return $rows;
+    }
+
+    private function restoreVersionRows($category, $product, $rows)
+    {
+        $versionDao = DAORegistry::getDAO('VersionDAO');
+        $versionDao->update(
+            'DELETE FROM versions WHERE LOWER(product_type) = LOWER(?) AND LOWER(product) = LOWER(?)',
+            array('plugins.' . $category, $product)
+        );
+        foreach ($rows as $row) {
+            $cols = array_keys($row);
+            $versionDao->update(
+                'INSERT INTO versions (' . implode(', ', $cols) . ') VALUES (' . implode(', ', array_fill(0, count($cols), '?')) . ')',
+                array_values($row)
+            );
+        }
+    }
+
+    /**
+     * Undo a plugin installation: remove the new files, put the previous
+     * version back from its ZIP backup (if there was one) and restore the
+     * versions rows exactly as they were.
+     * @return string short description of what was restored
+     */
+    private function rollbackInstall($category, $product, $pluginDestDir, $backupZip, $versionRows)
+    {
+        if (is_dir($pluginDestDir)) {
+            $this->recursiveDelete($pluginDestDir);
+        }
+        $restored = 'the plugin was removed';
+        if ($backupZip && file_exists($backupZip)) {
+            $zip = new ZipArchive();
+            if ($zip->open($backupZip) === true) {
+                $this->assertSafeArchive($this->zipEntryNames($zip));
+                $zip->extractTo($pluginDestDir);
+                $zip->close();
+                $restored = 'the previous version was restored';
+            }
+        }
+        try {
+            $this->restoreVersionRows($category, $product, $versionRows);
+        } catch (Throwable $e) {
+            error_log('BulkPluginManager: versions rollback failed for ' . $category . '/' . $product . ': ' . $e->getMessage());
+        }
+        return $restored;
     }
 
     /**
@@ -1810,9 +2224,24 @@ class BulkPluginManagerHandler extends Handler
      *
      * @return array|null array('release' => <github release>, 'vxml' => SimpleXMLElement)
      */
+    /**
+     * Why the last selectCompatibleRelease() call found nothing:
+     * 'otherLine' = releases exist but all target another OJS line; 'none' = no usable release.
+     */
+    private $_lastSelectReason = '';
+
     private function selectCompatibleRelease($repo, $forceRefresh = false)
     {
+        $line = $this->currentOjsLine();
         $releases = $this->fetchRepoReleases($repo, $forceRefresh);
+
+        // Two tiers: releases whose naming names the running OJS line win over
+        // releases whose line cannot be read from their names. Within a tier the
+        // highest plugin version wins (GitHub's list order is by date, not version).
+        $best = array('named' => null, 'unnamed' => null);
+        $bestVersion = array('named' => '', 'unnamed' => '');
+        $sawOtherLine = false;
+
         foreach ($releases as $release) {
             if (!empty($release['draft'])) {
                 continue;
@@ -1822,19 +2251,41 @@ class BulkPluginManagerHandler extends Handler
                 continue;
             }
 
+            // The tag / asset name states which OJS line the release is built for
+            // (packaging rule). A release named for another line is never offered,
+            // whatever its version.xml says (many of our version.xml files have no
+            // <compatibility> block, which used to mean "assume compatible").
+            $ranges = $this->releaseLineRanges($release);
+            if ($ranges && !$this->lineInRanges($line, $ranges)) {
+                $sawOtherLine = true;
+                continue;
+            }
+
             $vxml = $this->parseVersionXml($this->fetchVersionXmlAtRef($repo, $tag, $forceRefresh));
             if (!$vxml || !isset($vxml->application)) {
                 continue;
             }
 
             $compat = $this->xmlCompatibility($vxml);
-            // null = no compatibility block declared: keep the historical
-            // "assume compatible" fallback so single-line repos still work.
-            if ($compat === true || $compat === null) {
-                return array('release' => $release, 'vxml' => $vxml);
+            if ($compat === false) {
+                $sawOtherLine = true;
+                continue;
+            }
+
+            // Compatible by declaration or by name; or, with neither a block nor a
+            // line in the name, the legacy fallback (the install-time code check
+            // in downloadAndInstall() still guards against the wrong code).
+            $tier = $ranges ? 'named' : 'unnamed';
+            $ver = isset($vxml->release) ? (string) $vxml->release : '0';
+            if ($best[$tier] === null || version_compare($ver, $bestVersion[$tier], '>')) {
+                $best[$tier] = array('release' => $release, 'vxml' => $vxml);
+                $bestVersion[$tier] = $ver;
             }
         }
-        return null;
+
+        $selected = $best['named'] !== null ? $best['named'] : $best['unnamed'];
+        $this->_lastSelectReason = $selected ? '' : ($sawOtherLine ? 'otherLine' : 'none');
+        return $selected;
     }
 
     /**
@@ -1914,7 +2365,8 @@ class BulkPluginManagerHandler extends Handler
                 'compatible' => false,
                 'status' => 'available',
                 'downloadUrl' => null,
-                'repoUrl' => 'https://github.com/ojs-services/' . $repo
+                'repoUrl' => 'https://github.com/ojs-services/' . $repo,
+                'controls' => null
             );
 
             // Version + compatibility come from the manifest we will actually offer.
@@ -1923,9 +2375,13 @@ class BulkPluginManagerHandler extends Handler
             if ($selected) {
                 // selectCompatibleRelease() only returns compatible releases.
                 $pluginData['compatible'] = true;
+            } elseif ($this->_lastSelectReason === 'otherLine') {
+                // Releases exist, but every one targets another OJS line.
+                $pluginData['compatible'] = false;
             } else {
-                // No compatible release found — fall back to the default branch manifest.
-                // A missing <compatibility> block keeps the historical "assume compatible".
+                // No release at all — fall back to the default branch manifest.
+                // A missing <compatibility> block keeps the historical "assume compatible";
+                // with no package to download the card says "No package for this OJS version".
                 $compat = $this->xmlCompatibility($manifest);
                 $pluginData['compatible'] = ($compat === null) ? true : $compat;
             }
@@ -1934,19 +2390,13 @@ class BulkPluginManagerHandler extends Handler
             // /releases/latest — that would hand an OJS 3.5 package to an OJS 3.3 site.
             $releaseData = $selected ? $selected['release'] : null;
 
-            if ($releaseData && isset($releaseData['assets']) && count($releaseData['assets']) > 0) {
-                foreach ($releaseData['assets'] as $asset) {
-                    if (strpos($asset['name'], '.tar.gz') !== false) {
-                        $pluginData['downloadUrl'] = $asset['browser_download_url'];
-                        break;
-                    }
-                }
+            if ($releaseData && !empty($releaseData['assets']) && is_array($releaseData['assets'])) {
+                $pluginData['downloadUrl'] = $this->pickReleaseAsset($releaseData['assets']);
             }
 
-            // Fallback: use GitHub archive URL if no release asset
-            if (!$pluginData['downloadUrl'] && $releaseData && isset($releaseData['tag_name'])) {
-                $pluginData['downloadUrl'] = 'https://api.github.com/repos/ojs-services/' . $repo . '/tarball/' . $releaseData['tag_name'];
-            }
+            // No fallback to GitHub's source tarball: it is not an installable
+            // package (and may hold code for another OJS line). Without a matching
+            // release asset downloadUrl stays empty and the card says so.
 
             // Check if installed locally
             $info = $this->getInstalledInfo($category, $product);
@@ -1955,6 +2405,11 @@ class BulkPluginManagerHandler extends Handler
                 $pluginData['installedVersion'] = $info['fileVersion'];
             } elseif ($info['dbVersion']) {
                 $pluginData['installedVersion'] = $info['dbVersion'];
+            }
+
+            // Enable/disable + settings for plugins that are installed on disk
+            if ($pluginData['filesExist']) {
+                $pluginData['controls'] = $this->describePluginControls($category, $product);
             }
 
             // Determine status
@@ -1985,6 +2440,7 @@ class BulkPluginManagerHandler extends Handler
      */
     public function installOjsServicesPlugin($args, $request)
     {
+        ob_start(); // swallow any stray warnings/notices so they can't corrupt the JSON
         $this->requireCSRF($request);
 
         $product = $request->getUserVar('product');
@@ -2011,6 +2467,10 @@ class BulkPluginManagerHandler extends Handler
         // would pass. Require HTTPS, a GitHub host, and an /ojs-services/ path.
         if (!$this->isAllowedGithubUrl($downloadUrl)) {
             $this->jsonResponse('error', 'Invalid download URL: must be an HTTPS ojs-services GitHub URL');
+        }
+        // Source archives (tarball/zipball) are not installable release packages.
+        if (preg_match('#/(tarball|zipball)/#i', (string) parse_url($downloadUrl, PHP_URL_PATH))) {
+            $this->jsonResponse('error', 'No release package exists for this OJS version (source archives are not installed).');
         }
 
         try {
@@ -2062,13 +2522,147 @@ class BulkPluginManagerHandler extends Handler
             || strpos($parsed['path'], '/repos/ojs-services/') !== false);
     }
 
+    /**
+     * Per-request cache of loaded plugins by category (see describePluginControls).
+     */
+    private $_categoryPlugins = array();
+
+    /**
+     * Describe how an installed plugin can be enabled/disabled and configured, so
+     * the OJS Services tab can offer the same controls as OJS's own plugin list.
+     *
+     * Every action goes through OJS core's own plugin grid endpoints
+     * (grid.settings.plugins.SettingsPluginGridHandler: enable / disable / manage),
+     * so authorization, CSRF, notifications and plugin hooks behave exactly as in
+     * Website Settings > Plugins. Nothing is re-implemented here.
+     *
+     * @return array|null null when the plugin cannot be loaded
+     */
+    private function describePluginControls($category, $product)
+    {
+        try {
+            $request = Application::get()->getRequest();
+            $dispatcher = $request->getDispatcher();
+
+            if (!isset($this->_categoryPlugins[$category])) {
+                // loadCategory() returns the registered plugins as a flat
+                // name => Plugin map (via getPlugins()).
+                $loaded = array();
+                $registered = PluginRegistry::loadCategory($category);
+                foreach ((is_array($registered) ? $registered : array()) as $plugin) {
+                    if (is_object($plugin) && method_exists($plugin, 'getPluginPath')) {
+                        $loaded[strtolower(basename($plugin->getPluginPath()))] = $plugin;
+                    }
+                }
+                $this->_categoryPlugins[$category] = $loaded;
+            }
+            $key = strtolower($product);
+            if (!isset($this->_categoryPlugins[$category][$key])) {
+                return null;
+            }
+            $plugin = $this->_categoryPlugins[$category][$key];
+            $pluginName = $plugin->getName();
+
+            $gridUrl = function ($op, $extra = array()) use ($dispatcher, $request, $pluginName, $category) {
+                return $dispatcher->url(
+                    $request, ROUTE_COMPONENT, null,
+                    'grid.settings.plugins.SettingsPluginGridHandler', $op, null,
+                    array_merge(array('plugin' => $pluginName, 'category' => $category), $extra)
+                );
+            };
+
+            $controls = array(
+                'pluginName' => $pluginName,
+                'canEnable' => (bool) $plugin->getCanEnable(),
+                'canDisable' => (bool) $plugin->getCanDisable(),
+                'enabled' => (bool) $plugin->getEnabled(),
+                'enableUrl' => $gridUrl('enable'),
+                'disableUrl' => $gridUrl('disable'),
+                'settings' => null,
+            );
+
+            // Settings: reuse the plugin's own actions. OJS offers them only while
+            // the plugin is enabled (import/export plugins are always enabled).
+            import('lib.pkp.classes.linkAction.request.RedirectAction');
+            import('lib.pkp.classes.linkAction.request.AjaxModal');
+            $actions = array();
+            try {
+                $actions = (array) $plugin->getActions($request, array('plugin' => $pluginName, 'category' => $category));
+            } catch (Throwable $e) {
+                error_log('BulkPluginManager: getActions failed for ' . $pluginName . ': ' . $e->getMessage());
+            }
+
+            // Prefer the action with id "settings", else the first usable one.
+            usort($actions, function ($a, $b) {
+                $as = (is_object($a) && method_exists($a, 'getId') && $a->getId() === 'settings') ? 0 : 1;
+                $bs = (is_object($b) && method_exists($b, 'getId') && $b->getId() === 'settings') ? 0 : 1;
+                return $as - $bs;
+            });
+
+            foreach ($actions as $action) {
+                if (!is_object($action) || !method_exists($action, 'getActionRequest')) {
+                    continue;
+                }
+                $actionRequest = $action->getActionRequest();
+                $label = method_exists($action, 'getTitle') ? (string) $action->getTitle() : '';
+
+                if ($actionRequest instanceof RedirectAction) {
+                    // Own settings page (e.g. import/export screen, plugin dashboard)
+                    $controls['settings'] = array('type' => 'page', 'url' => $actionRequest->getUrl(), 'label' => $label);
+                    break;
+                }
+                if ($actionRequest instanceof AjaxModal) {
+                    // The plugin built this URL with whatever router handled the
+                    // current request; under our page router it would point at the
+                    // wrong handler. Keep its "verb" and rebuild the URL on OJS
+                    // core's plugin grid, exactly like Website Settings > Plugins.
+                    $verb = 'settings';
+                    $query = parse_url(html_entity_decode((string) $actionRequest->getUrl()), PHP_URL_QUERY);
+                    if ($query) {
+                        parse_str($query, $queryArgs);
+                        if (!empty($queryArgs['verb']) && preg_match('/^[A-Za-z0-9_]+$/', $queryArgs['verb'])) {
+                            $verb = $queryArgs['verb'];
+                        }
+                    }
+                    $title = method_exists($actionRequest, 'getTitle') ? (string) $actionRequest->getTitle() : '';
+                    $controls['settings'] = array(
+                        'type' => 'modal',
+                        'url' => $gridUrl('manage', array('verb' => $verb)),
+                        'title' => $title !== '' ? $title : $plugin->getDisplayName(),
+                        'label' => $label,
+                    );
+                    break;
+                }
+            }
+
+            return $controls;
+        } catch (Throwable $e) {
+            error_log('BulkPluginManager: describePluginControls failed for ' . $category . '/' . $product . ': ' . $e->getMessage());
+            return null;
+        }
+    }
+
     private function jsonResponse($status, $message, $product = null)
     {
-        header('Content-Type: application/json');
         $response = array('status' => $status, 'message' => $message);
         if ($product)
             $response['product'] = $product;
-        echo json_encode($response);
+        $this->sendJson($response);
+    }
+
+    /**
+     * Emit a JSON response and stop. Any output produced before this point —
+     * PHP notices/deprecations printed by servers with display_errors=On (e.g.
+     * the bundled Guzzle on PHP 8.1 during downloads) — is discarded first, so
+     * it can never corrupt the JSON and make a successful action look failed.
+     */
+    private function sendJson($data)
+    {
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        header('Content-Type: application/json');
+        echo json_encode($data);
         exit;
     }
 

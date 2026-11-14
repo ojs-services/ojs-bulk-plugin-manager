@@ -1,6 +1,6 @@
 # OJS Toplu Eklenti Yöneticisi
 
-![Version](https://img.shields.io/badge/versiyon-1.11.5-blue)
+![Version](https://img.shields.io/badge/versiyon-1.12.4-blue)
 ![OJS](https://img.shields.io/badge/OJS-3.3.x-green)
 ![License](https://img.shields.io/badge/lisans-GPL--3.0-orange)
 
@@ -12,9 +12,9 @@ Open Journal Systems (OJS) 3.3.x için kapsamlı eklenti yönetim paneli. Tüm e
 
 - **Dashboard** - Tüm eklentilerin durum özetini tek bakışta görün
 - **Toplu İşlem** - Birden fazla eklentiyi seçip tek seferde güncelleyin/kurun
-- **OJS Services** - [github.com/ojs-services](https://github.com/ojs-services) eklentilerini doğrudan kurun
+- **OJS Services** - [github.com/ojs-services](https://github.com/ojs-services) eklentilerini doğrudan kurun, dergi bazında aktif/pasif yapın ve ayarlarını aynı karttan açın
 - **DB Senkronizasyon** - OJS eklenti sayfasını çökerten veritabanı-dosya uyumsuzluklarını tespit edip onarın
-- **Yedekleme & Geri Yükleme** - Güncelleme sırasında otomatik yedek, tek tıkla geri yükleme
+- **Yedekleme & Geri Yükleme** - Güncelleme sırasında otomatik yedek, tek tıkla geri yükleme; eski yedekleri toplu temizleme (tümü, her eklentinin en yenisini koru, 30 günden eski)
 - **PKP Gallery** - Resmi PKP Eklenti Galerisi'nden uyumlu eklentileri kurun
 - **Kenar Menüsü** - OJS tarzı sol menü ile hızlı navigasyon
 - **Çift Dil** - Türkçe ve İngilizce arayüz
@@ -33,9 +33,11 @@ https://siteniz.com/index.php/DERGI/bulkPluginManager
 
 Veya OJS kenar menüsündeki **Bulk Plugin Manager** bağlantısına tıklayın.
 
+> **Güncelleme uyarısı:** 1.12.2.0 öncesi sürümler, iki OJS hattı aynı sürüm numarasını taşıdığında yanlış hattın paketini seçebiliyordu; 1.12.4.0 öncesi sürümler ise `<compatibility>` bloğu olmayan bir release'te OJS 3.3 sitesine OJS 3.4/3.5 kodu kurabiliyordu. Lütfen 1.12.4.0 veya sonrasına güncelleyin.
+
 ## Uyumluluk
 
-OJS 3.3.0.0 - 3.3.0.22
+OJS 3.3.0.0 - 3.3.0.23
 
 ## Güvenlik
 
