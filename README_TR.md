@@ -33,7 +33,7 @@ https://siteniz.com/index.php/DERGI/bulkPluginManager
 
 Veya OJS kenar menüsündeki **Bulk Plugin Manager** bağlantısına tıklayın.
 
-> **Güncelleme uyarısı:** 1.12.2.0 öncesi sürümler, iki OJS hattı aynı sürüm numarasını taşıdığında yanlış hattın paketini seçebiliyordu; 1.12.4.0 öncesi sürümler ise `<compatibility>` bloğu olmayan bir release'te OJS 3.3 sitesine OJS 3.4/3.5 kodu kurabiliyordu. Lütfen 1.12.4.0 veya sonrasına güncelleyin.
+> **Güncelleme uyarısı:** 1.12.2.0 öncesi sürümler, iki OJS hattı aynı sürüm numarasını taşıdığında yanlış hattın paketini seçebiliyordu; 1.12.4.0 öncesi sürümler ise `<compatibility>` bloğu olmayan bir release'te OJS 3.3 sitesine OJS 3.4/3.5 kodu kurabiliyordu. Lütfen 1.12.4.1 veya sonrasına güncelleyin.
 
 ## Uyumluluk
 

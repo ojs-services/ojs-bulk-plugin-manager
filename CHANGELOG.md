@@ -3,6 +3,10 @@
 All notable changes to this plugin. Line = supported OJS series.
 Package name: `bulkPluginManager-ojs<line>-<version>.tar.gz`.
 
+## 1.12.4.1 — 2026-11-14 — OJS 3.3
+- The plugin's own `version.xml` declares its OJS line with a wildcard (`3.3.0.x`) instead of listing every 3.3.0 release, so new OJS 3.3 patch releases are covered without an update.
+- Compatibility blocks of other plugins are matched by OJS line (major.minor): `3.3.0`, `3.3.0.x`, `3.3.0.*`, `~3.3.0` and per-release lists all match OJS 3.3; `3.4`/`3.5` blocks do not.
+
 ## 1.12.4.0 — 2026-11-14 — OJS 3.3
 - OJS Services: a release is offered only if its tag or package name matches the running OJS line (e.g. `ojs3.3-…` on OJS 3.3). Among matching releases the highest version is chosen.
 - GitHub source archives are no longer used as a fallback. If no package exists for this OJS version, the card says so.

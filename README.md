@@ -33,7 +33,7 @@ https://yoursite.com/index.php/JOURNAL/bulkPluginManager
 
 Or click the **Bulk Plugin Manager** link in the OJS sidebar.
 
-> **Upgrade notice:** versions before 1.12.2.0 could pick the package of the wrong OJS line when two lines shared a version number, and versions before 1.12.4.0 could install OJS 3.4/3.5 code on OJS 3.3 when a release had no `<compatibility>` block. Please update to 1.12.4.0 or later.
+> **Upgrade notice:** versions before 1.12.2.0 could pick the package of the wrong OJS line when two lines shared a version number, and versions before 1.12.4.0 could install OJS 3.4/3.5 code on OJS 3.3 when a release had no `<compatibility>` block. Please update to 1.12.4.1 or later.
 
 ## Compatibility
 
