@@ -21,7 +21,7 @@ Open Journal Systems (OJS) 3.3.x için kapsamlı eklenti yönetim paneli. Tüm e
 
 ## Kurulum
 
-1. [Releases](../../releases) sayfasından `bulkPluginManager-ojs3.3-<sürüm>.tar.gz` dosyasını (ör. `bulkPluginManager-ojs3.3-1.12.5.0.tar.gz`) indirin
+1. [Releases](../../releases) sayfasından `bulkPluginManager-ojs3.3-<sürüm>.tar.gz` dosyasını (ör. `bulkPluginManager-ojs3.3-1.12.5.1.tar.gz`) indirin
 2. OJS kurulumunuzdaki `plugins/generic/` klasörüne çıkartın
 3. Web Sitesi Ayarları > Eklentiler > Genel Eklentiler altından **Bulk Plugin Manager**'ı etkinleştirin
 

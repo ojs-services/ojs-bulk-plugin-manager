@@ -1180,6 +1180,10 @@ class BulkPluginManagerHandler extends Handler
             return 'Temp dir creation failed';
         }
 
+        // Set once the existing installation starts to change: any failure after
+        // that point (including PHP errors, not only exceptions) restores it.
+        $undo = null;
+
         try {
             // Download
             $packageFile = $tempDir . '/plugin.tar.gz';
@@ -1187,7 +1191,7 @@ class BulkPluginManagerHandler extends Handler
 
             try {
                 $client->request('GET', $packageUrl, ['sink' => $packageFile, 'timeout' => 60]);
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 throw new Exception('Download failed: ' . $e->getMessage());
             }
 
@@ -1219,8 +1223,10 @@ class BulkPluginManagerHandler extends Handler
                     $this->assertSafeArchive($names);
                     $phar->extractTo($extractDir);
                     $extractSuccess = true;
+                    // release the archive handle so the temp folder can be removed (Windows)
+                    unset($iterator, $phar);
                 }
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 error_log('PharData extract failed: ' . $e->getMessage());
                 // If the failure was our own safety check, do not silently fall through
                 // to tar — abort so an unsafe archive is never extracted.
@@ -1324,11 +1330,15 @@ class BulkPluginManagerHandler extends Handler
                 if (!$this->createZipBackup($pluginDestDir, $zipFile)) {
                     throw new Exception('Backup failed');
                 }
+            }
+            $undo = array($category, $product, $pluginDestDir, $zipFile, $versionRows);
+            if (is_dir($pluginDestDir)) {
                 $this->recursiveDelete($pluginDestDir);
             }
 
             // Copy files
             if (!$this->recursiveCopy($pluginSourceDir, $pluginDestDir)) {
+                $undo = null;
                 $restored = $this->rollbackInstall($category, $product, $pluginDestDir, $zipFile, $versionRows);
                 throw new Exception('File copy failed; ' . $restored . '.');
             }
@@ -1346,6 +1356,7 @@ class BulkPluginManagerHandler extends Handler
                 $smoke = $this->runSmokeScript($cliPhp, $tempDir, 'load', $category, $product);
                 if (!$smoke['ok']) {
                     error_log('BulkPluginManager: smoke test failed for ' . $category . '/' . $product . ":\n" . $smoke['output']);
+                    $undo = null;
                     $restored = $this->rollbackInstall($category, $product, $pluginDestDir, $zipFile, $versionRows);
                     throw new Exception(
                         'The installed plugin failed to load (' . $this->smokeErrorSummary($smoke) . '); '
@@ -1357,13 +1368,25 @@ class BulkPluginManagerHandler extends Handler
             }
 
             // Cleanup temp
+            $undo = null;
             $this->recursiveDelete($tempDir);
 
             return true;
 
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
+            $message = $e->getMessage();
+            if ($undo !== null) {
+                // Failed half-way through changing the installation: put it back.
+                error_log('BulkPluginManager: install of ' . $category . '/' . $product . ' failed after changes began: ' . $message);
+                try {
+                    $restored = call_user_func_array(array($this, 'rollbackInstall'), $undo);
+                } catch (Throwable $r) {
+                    $restored = 'restoring the previous state also failed (' . $r->getMessage() . ')';
+                }
+                $message = 'Install failed (' . $message . '); ' . $restored . '.';
+            }
             $this->recursiveDelete($tempDir);
-            return $e->getMessage();
+            return $message;
         }
     }
 

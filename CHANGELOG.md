@@ -3,6 +3,10 @@
 All notable changes to this plugin. Line = supported OJS series.
 Package name: `bulkPluginManager-ojs<line>-<version>.tar.gz`.
 
+## 1.12.5.1 — 2026-11-27 — OJS 3.3
+- Install and update: if anything fails after the existing plugin has started to be replaced — including PHP errors, not only reported failures — the previous version (files and database version record) is restored. Before, such an error could leave the plugin removed or half-updated.
+- The temporary download folder is removed after each install on Windows servers too.
+
 ## 1.12.5.0 — 2026-11-27 — OJS 3.3
 - On an OJS site using a language the plugin has no translation for, the plugin's own texts (name, description, menu link) are shown in English instead of raw `##key##` placeholders. Languages with a translation (Turkish) are unchanged, and OJS's own texts are not affected.
 - Animations and transitions are turned off when the operating system asks for reduced motion; the loading spinner keeps turning slowly.
