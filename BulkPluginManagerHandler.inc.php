@@ -2299,7 +2299,7 @@ class BulkPluginManagerHandler extends Handler
         $currentVersion = VersionCheck::getCurrentCodeVersion();
         $ojsVersion = $currentVersion->getVersionString();
 
-        // Phase 1: Get repo list dynamically from GitHub org
+        // Get the repository list from the GitHub organisation
         $repos = $this->fetchOrgRepos($forceRefresh);
         if (empty($repos)) {
             return array(

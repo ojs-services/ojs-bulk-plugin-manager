@@ -307,3 +307,10 @@
 .bpm-app .ojs-always-on { font-size: 11px; font-weight: 600; color: #2e7d32; background: #e8f5e9; padding: 3px 10px; border-radius: 12px; }
 .bpm-app .btn-ojs-settings { display: inline-flex; align-items: center; gap: 4px; background: #fff; color: var(--bpm-primary); border: 1px solid #cfd8e3; padding: 5px 12px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600; text-decoration: none; transition: all 0.2s; }
 .bpm-app .btn-ojs-settings:hover { background: var(--bpm-primary); color: #fff; border-color: var(--bpm-primary); }
+
+/* Respect the visitor's reduced-motion setting */
+@media (prefers-reduced-motion: reduce) {
+    .bpm-app *, .bpm-app *::before, .bpm-app *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+    /* the spinner is a progress indicator: keep it turning, slowly */
+    .bpm-app .spinner { animation-duration: 1.6s !important; animation-iteration-count: infinite !important; }
+}

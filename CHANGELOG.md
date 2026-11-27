@@ -3,6 +3,11 @@
 All notable changes to this plugin. Line = supported OJS series.
 Package name: `bulkPluginManager-ojs<line>-<version>.tar.gz`.
 
+## 1.12.5.0 — 2026-11-27 — OJS 3.3
+- On an OJS site using a language the plugin has no translation for, the plugin's own texts (name, description, menu link) are shown in English instead of raw `##key##` placeholders. Languages with a translation (Turkish) are unchanged, and OJS's own texts are not affected.
+- Animations and transitions are turned off when the operating system asks for reduced motion; the loading spinner keeps turning slowly.
+- README: the installation step names the actual release file (`bulkPluginManager-ojs3.3-<version>.tar.gz`).
+
 ## 1.12.4.1 — 2026-11-14 — OJS 3.3
 - The plugin's own `version.xml` declares its OJS line with a wildcard (`3.3.0.x`) instead of listing every 3.3.0 release, so new OJS 3.3 patch releases are covered without an update.
 - Compatibility blocks of other plugins are matched by OJS line (major.minor): `3.3.0`, `3.3.0.x`, `3.3.0.*`, `~3.3.0` and per-release lists all match OJS 3.3; `3.4`/`3.5` blocks do not.

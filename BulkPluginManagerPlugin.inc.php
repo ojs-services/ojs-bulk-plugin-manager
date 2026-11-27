@@ -29,6 +29,22 @@ class BulkPluginManagerPlugin extends GenericPlugin {
     }
 
     /**
+     * English fallback for this plugin's own texts (OJS 3.3 shows ##key##
+     * for a missing key): the English file goes FIRST. OJS searches the
+     * registered files from the last one back, so the language's own file
+     * wins and anything it lacks comes from English. The locale files hold
+     * only this plugin's keys, so OJS's own translations are not affected.
+     */
+    public function getLocaleFilename($locale) {
+        $files = (array) parent::getLocaleFilename($locale);
+        $english = $this->getPluginPath() . '/locale/en_US/locale.po';
+        if ($locale !== 'en_US' && file_exists($english)) {
+            array_unshift($files, $english);
+        }
+        return $files;
+    }
+
+    /**
      * @copydoc PKPHandler::loadHandler()
      */
     public function loadHandler($hookName, $params) {

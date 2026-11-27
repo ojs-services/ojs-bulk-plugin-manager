@@ -1,6 +1,6 @@
 # OJS Toplu Eklenti Yöneticisi
 
-![Version](https://img.shields.io/badge/versiyon-1.12.4-blue)
+![Version](https://img.shields.io/badge/versiyon-1.12.5-blue)
 ![OJS](https://img.shields.io/badge/OJS-3.3.x-green)
 ![License](https://img.shields.io/badge/lisans-GPL--3.0-orange)
 
@@ -21,7 +21,7 @@ Open Journal Systems (OJS) 3.3.x için kapsamlı eklenti yönetim paneli. Tüm e
 
 ## Kurulum
 
-1. [Releases](../../releases) sayfasından `bulkPluginManager.tar.gz` dosyasını indirin
+1. [Releases](../../releases) sayfasından `bulkPluginManager-ojs3.3-<sürüm>.tar.gz` dosyasını (ör. `bulkPluginManager-ojs3.3-1.12.5.0.tar.gz`) indirin
 2. OJS kurulumunuzdaki `plugins/generic/` klasörüne çıkartın
 3. Web Sitesi Ayarları > Eklentiler > Genel Eklentiler altından **Bulk Plugin Manager**'ı etkinleştirin
 
@@ -38,6 +38,10 @@ Veya OJS kenar menüsündeki **Bulk Plugin Manager** bağlantısına tıklayın.
 ## Uyumluluk
 
 OJS 3.3.0.0 - 3.3.0.23
+
+## Diller
+
+Arayüz Türkçe ve İngilizce hazırdır. Başka bir dil kullanan OJS sitesinde eklentinin metinleri İngilizce görünür.
 
 ## Güvenlik
 

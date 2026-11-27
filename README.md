@@ -1,6 +1,6 @@
 # Bulk Plugin Manager for OJS
 
-![Version](https://img.shields.io/badge/version-1.12.4-blue)
+![Version](https://img.shields.io/badge/version-1.12.5-blue)
 ![OJS](https://img.shields.io/badge/OJS-3.3.x-green)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange)
 
@@ -21,7 +21,7 @@ A full-featured plugin management dashboard for Open Journal Systems (OJS) 3.3.x
 
 ## Installation
 
-1. Download `bulkPluginManager.tar.gz` from [Releases](../../releases)
+1. Download `bulkPluginManager-ojs3.3-<version>.tar.gz` (e.g. `bulkPluginManager-ojs3.3-1.12.5.0.tar.gz`) from [Releases](../../releases)
 2. Extract to `plugins/generic/` in your OJS installation
 3. Enable **Bulk Plugin Manager** under Website Settings > Plugins > Generic Plugins
 
@@ -38,6 +38,10 @@ Or click the **Bulk Plugin Manager** link in the OJS sidebar.
 ## Compatibility
 
 OJS 3.3.0.0 - 3.3.0.23
+
+## Languages
+
+The interface is available in English and Turkish. On an OJS site using any other language, the plugin's texts are shown in English.
 
 ## Security
 
